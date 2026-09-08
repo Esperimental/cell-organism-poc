@@ -6,10 +6,18 @@
   "foodSenseMinBiomass": 2,
   "grazing": {
     "moveForageImprovement": 1.2,
-    "minSupportRatio": 1.3,
+    "minSupportRatio": 1.5,
     "migrationMinDistance": 10,
     "migrationSenseRadius": 60,
-    "migrationTargetMinBiomass": 8
+    "migrationTargetMinBiomass": 8,
+    "migrationPastureRadius": 4,
+    "migrationUsableBiomassPerCell": 10,
+    "migrationTravelCostWeight": 2,
+    "migrationTargetJitterFraction": 0.04,
+    "migrationRevisitRadius": 8,
+    "migrationRevisitCooldownTicks": 1800,
+    "migrationRecentPastureMinValueFraction": 0.12,
+    "migrationHistorySize": 8
   },
   "reshape": {
     "enabled": true,

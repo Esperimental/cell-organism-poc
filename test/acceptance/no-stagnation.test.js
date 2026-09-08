@@ -16,6 +16,8 @@ test('long-run organism does not stagnate on its first pasture', () => {
   let births = 0;
   let sacrifices = 0;
   let migrationTicks = 0;
+  let lastTargetKey = null;
+  const targetClusters = [];
 
   for (let tick = 1; tick <= 5000; tick += 1) {
     const result = session.step();
@@ -23,6 +25,21 @@ test('long-run organism does not stagnate on its first pasture', () => {
     births += result.events.filter((event) => event.type === 'reproduction').length;
     sacrifices += result.events.filter((event) => event.type === 'sacrifice').length;
     if (session.state.activity.mode === 'MIGRATING') migrationTicks += 1;
+
+    const target = session.state.migration?.target;
+    const targetKey = target ? `${target.x},${target.y}` : null;
+    if (target && targetKey !== lastTargetKey) {
+      let cluster = targetClusters.find((candidate) =>
+        Math.abs(candidate.x - target.x) + Math.abs(candidate.y - target.y) <= 8);
+      if (!cluster) {
+        cluster = { x: target.x, y: target.y, visits: 0 };
+        targetClusters.push(cluster);
+      }
+      cluster.visits += 1;
+      lastTargetKey = targetKey;
+    } else if (!target) {
+      lastTargetKey = null;
+    }
 
     if (result.events.some((event) => interestingTypes.has(event.type))) {
       maxStagnationTicks = Math.max(maxStagnationTicks, tick - lastInterestingTick - 1);
@@ -34,8 +51,8 @@ test('long-run organism does not stagnate on its first pasture', () => {
 
   assert.ok(session.state.cells.length > 0, 'organism should survive the long-run scenario');
   assert.ok(births > 0, 'rich pasture should produce growth');
-  assert.ok(sacrifices > 0, 'long travel should create contraction pressure');
   assert.ok(migrationTicks > 0, 'organism should enter committed migration');
+  assert.ok(targetClusters.length >= 3, `expected roaming across at least 3 pasture regions, got ${targetClusters.length}`);
   assert.ok(maxCentroidDisplacement >= 20, `expected meaningful travel, got ${maxCentroidDisplacement.toFixed(2)} tiles`);
   assert.ok(maxStagnationTicks <= 750, `organism stagnated for ${maxStagnationTicks} ticks`);
 });

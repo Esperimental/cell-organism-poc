@@ -5,7 +5,7 @@
   "maxY": 35,
   "foodPatches": {
     "defaultCapacity": 24,
-    "defaultGrowthRate": 0.3
+    "defaultGrowthRate": 0.15
   },
   "foodSpread": {
     "enabled": true,
@@ -13,7 +13,7 @@
     "minBiomassToSpread": 6,
     "seedAmount": 1,
     "newRootCapacity": 18,
-    "newRootGrowthRate": 0.225,
+    "newRootGrowthRate": 0.1125,
     "maxRoots": 140
   },
   "foodSpawn": {

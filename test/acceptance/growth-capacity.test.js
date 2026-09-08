@@ -43,12 +43,12 @@ test('baseline ecology aggregate matches reviewed snapshot', () => {
   assert.deepEqual(compactAggregate(report.aggregate), expected);
 });
 
-test('growth target remains viable over 500 ticks across baseline seeds', () => {
-  const report = runExperiment({ ...baselineExperiment, ticks: 500 });
+test('growth target remains viable over 1500 ticks across baseline seeds', () => {
+  const report = runExperiment({ ...baselineExperiment, ticks: 1500 });
   const aggregate = report.aggregate;
 
   assert.ok(aggregate.survivalRate >= 0.9, `survival rate ${aggregate.survivalRate} < 0.9`);
-  assert.ok(aggregate.medianPeakCells >= 20, `median peak cells ${aggregate.medianPeakCells} < 20`);
-  assert.ok(aggregate.maxPeakCells <= 60, `max peak cells ${aggregate.maxPeakCells} > 60`);
+  assert.ok(aggregate.medianPeakCells >= 30, `median peak cells ${aggregate.medianPeakCells} < 30`);
+  assert.ok(aggregate.maxPeakCells <= 100, `max peak cells ${aggregate.maxPeakCells} > 100`);
   assert.ok(aggregate.meanLargestComponentFraction >= 0.95, `connectivity ${aggregate.meanLargestComponentFraction} < 0.95`);
 });

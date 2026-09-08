@@ -152,6 +152,43 @@ function largestComponent(state) {
   return connectedComponents(state).sort((a, b) => b.length - a.length)[0] ?? [];
 }
 
+function rememberPasture(state, point, rules) {
+  if (!point) return;
+  const grazing = rules.grazing ?? {};
+  const radius = grazing.migrationRevisitRadius ?? 8;
+  const maxHistory = grazing.migrationHistorySize ?? 8;
+  state.pastureHistory ??= [];
+
+  const existing = state.pastureHistory.find((entry) =>
+    Math.abs(entry.x - point.x) + Math.abs(entry.y - point.y) <= radius);
+  if (existing) {
+    existing.visitedTick = state.tick;
+  } else {
+    state.pastureHistory.push({ x: point.x, y: point.y, visitedTick: state.tick });
+  }
+
+  state.pastureHistory.sort((a, b) => b.visitedTick - a.visitedTick);
+  if (state.pastureHistory.length > maxHistory) state.pastureHistory.length = maxHistory;
+}
+
+function recentPastureValueFactor(state, food, rules) {
+  const grazing = rules.grazing ?? {};
+  const cooldown = grazing.migrationRevisitCooldownTicks ?? 1800;
+  const radius = grazing.migrationRevisitRadius ?? 8;
+  const minimumFactor = grazing.migrationRecentPastureMinValueFraction ?? 0.12;
+  if (!(cooldown > 0) || !state.pastureHistory?.length) return 1;
+
+  let latestVisit = null;
+  for (const entry of state.pastureHistory) {
+    if (Math.abs(entry.x - food.x) + Math.abs(entry.y - food.y) > radius) continue;
+    if (latestVisit === null || entry.visitedTick > latestVisit) latestVisit = entry.visitedTick;
+  }
+  if (latestVisit === null) return 1;
+  const age = Math.max(0, state.tick - latestVisit);
+  if (age >= cooldown) return 1;
+  return minimumFactor + (1 - minimumFactor) * (age / cooldown);
+}
+
 export function chooseMigrationTarget(state, rules) {
   const component = largestComponent(state);
   if (!component.length) return null;
@@ -160,21 +197,54 @@ export function chooseMigrationTarget(state, rules) {
   const minDistance = grazing.migrationMinDistance ?? 10;
   const senseRadius = grazing.migrationSenseRadius ?? 60;
   const minBiomass = grazing.migrationTargetMinBiomass ?? 8;
+  const pastureRadius = grazing.migrationPastureRadius ?? 4;
+  const travelCostWeight = grazing.migrationTravelCostWeight ?? 2;
+  const usableBiomassPerCell = grazing.migrationUsableBiomassPerCell ?? 10;
+  const jitterFraction = grazing.migrationTargetJitterFraction ?? 0;
 
-  const candidates = state.food
-    .filter((food) => food.amount >= minBiomass)
-    .map((food) => ({
+  const eligible = state.food.filter((food) => food.amount >= minBiomass);
+  const candidates = [];
+
+  for (const food of eligible) {
+    const distance = Math.abs(food.x - center.x) + Math.abs(food.y - center.y);
+    if (distance < minDistance || distance > senseRadius) continue;
+
+    const localBiomass = state.food.reduce((sum, nearby) => {
+      const localDistance = Math.abs(nearby.x - food.x) + Math.abs(nearby.y - food.y);
+      return localDistance <= pastureRadius ? sum + nearby.amount : sum;
+    }, 0);
+    const usableBiomass = Math.min(localBiomass, component.length * usableBiomassPerCell);
+    const revisitFactor = recentPastureValueFactor(state, food, rules);
+    const pastureEnergyValue = usableBiomass * rules.stem.digestionEfficiency * revisitFactor;
+    const travelCost = distance * component.length * rules.movementEnergy;
+    let score = pastureEnergyValue - travelCostWeight * travelCost;
+
+    if (jitterFraction > 0) {
+      const roll = nextRandom(state.rngState ?? 0);
+      state.rngState = roll.state;
+      score *= 1 + (roll.value * 2 - 1) * jitterFraction;
+    }
+
+    candidates.push({
       x: food.x,
       y: food.y,
       amount: food.amount,
-      distance: Math.abs(food.x - center.x) + Math.abs(food.y - center.y),
-    }))
-    .filter((food) => food.distance >= minDistance && food.distance <= senseRadius)
-    .sort((a, b) =>
-      (a.distance - b.distance)
-      || (b.amount - a.amount)
-      || (a.y - b.y)
-      || (a.x - b.x));
+      distance,
+      localBiomass,
+      usableBiomass,
+      revisitFactor,
+      pastureEnergyValue,
+      travelCost,
+      score,
+    });
+  }
+
+  candidates.sort((a, b) =>
+    (b.score - a.score)
+    || (a.distance - b.distance)
+    || (b.localBiomass - a.localBiomass)
+    || (a.y - b.y)
+    || (a.x - b.x));
   return candidates[0] ?? null;
 }
 
@@ -202,13 +272,18 @@ function migrationDirectionForTick(state, rules) {
     const target = state.migration.target;
     const reachedTarget = component.some((cell) => cell.x === target.x && cell.y === target.y);
     if (reachedTarget && currentForage > 0 && currentSupport >= minimumSupport) {
+      rememberPasture(state, target, rules);
       state.migration = null;
       return { handled: false, direction: null };
     }
-    if (reachedTarget && currentSupport < minimumSupport) state.migration = null;
+    if (reachedTarget && currentSupport < minimumSupport) {
+      rememberPasture(state, target, rules);
+      state.migration = null;
+    }
   }
 
   if (!state.migration?.target && currentForage > 0 && currentSupport < minimumSupport) {
+    rememberPasture(state, componentCenter(component), rules);
     const target = chooseMigrationTarget(state, rules);
     if (target) {
       state.migration = {
