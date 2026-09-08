@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import { GameSession } from '../../src/simulation/session.js';
 import { rules, mergeWorld } from '../helpers/fixtures.js';
 
-const noFoodWorld = mergeWorld({ foodSpawn: { enabled: false } });
+const noFoodWorld = mergeWorld({
+  minX: -15,
+  maxX: 15,
+  minY: -10,
+  maxY: 10,
+  foodSpawn: { enabled: false },
+});
 
 test('snapshot: starving organism eventually dies without food', () => {
   const state = {

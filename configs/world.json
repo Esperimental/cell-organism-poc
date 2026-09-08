@@ -1,11 +1,11 @@
 {
-  "minX": -15,
-  "maxX": 15,
-  "minY": -10,
-  "maxY": 10,
+  "minX": -50,
+  "maxX": 50,
+  "minY": -35,
+  "maxY": 35,
   "foodPatches": {
     "defaultCapacity": 24,
-    "defaultGrowthRate": 0.3
+    "defaultGrowthRate": 0.28
   },
   "foodSpread": {
     "enabled": true,
@@ -13,7 +13,7 @@
     "minBiomassToSpread": 6,
     "seedAmount": 1,
     "newRootCapacity": 18,
-    "newRootGrowthRate": 0.225,
+    "newRootGrowthRate": 0.21,
     "maxRoots": 140
   },
   "foodSpawn": {

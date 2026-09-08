@@ -119,3 +119,57 @@ test('organism shifts within pasture when nearby forage is substantially richer'
   assert.equal(foodContactCount(session.state, rules), 3);
   assert.equal(session.state.activity.mode, 'FEEDING');
 });
+
+test('reproduction fills a compact indentation instead of sticking outward', () => {
+  const compactBirthScenario = JSON.parse(fs.readFileSync('scenarios/compact-birth.json', 'utf8'));
+  const localWorld = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
+  const localRules = structuredClone(rules);
+  localRules.search.enabled = false;
+  localRules.maintenanceEnergy = 0;
+  localRules.exposedEdgeEnergyCost = 0;
+  localRules.stem.energyTransferRate = 0;
+  localRules.stem.foodTransferRate = 0;
+  const session = new GameSession({ state: compactBirthScenario, rules: localRules, world: localWorld, seed: 1 });
+  const result = session.step();
+  const birth = result.events.find((event) => event.type === 'reproduction');
+  const child = session.state.cells.find((cell) => cell.id === birth?.childId);
+
+  assert.ok(birth);
+  assert.deepEqual({ x: child.x, y: child.y }, { x: 1, y: 2 });
+  assert.equal(birth.touchingCells, 3);
+});
+
+test('3x3 organism reproduces from a corner parent into an edge-middle perimeter tile', () => {
+  const cells = [];
+  let id = 1;
+  for (let y = 0; y < 3; y += 1) {
+    for (let x = 0; x < 3; x += 1) {
+      cells.push({
+        id: id++,
+        x,
+        y,
+        type: 'stem',
+        energy: (x === 0 && y === 0) ? 100 : 40,
+        storedFood: (x === 0 && y === 0) ? 10 : 0,
+      });
+    }
+  }
+
+  const localRules = structuredClone(rules);
+  localRules.search.enabled = false;
+  localRules.maintenanceEnergy = 0;
+  localRules.exposedEdgeEnergyCost = 0;
+  localRules.stem.energyTransferRate = 0;
+  localRules.stem.foodTransferRate = 0;
+  const localWorld = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
+  const session = new GameSession({ state: { tick: 0, cells, food: [] }, rules: localRules, world: localWorld, seed: 1 });
+  const result = session.step();
+  const birth = result.events.find((event) => event.type === 'reproduction');
+
+  const edgeMiddleSpots = new Set(['1,-1', '3,1', '1,3', '-1,1']);
+  assert.ok(birth);
+  assert.ok(edgeMiddleSpots.has(`${birth.x},${birth.y}`), `expected edge-middle birth, got ${birth.x},${birth.y}`);
+  assert.equal(birth.touchingCells, 1);
+  assert.equal(birth.diagonalCells, 2);
+  assert.equal(birth.roundnessScore, 4);
+});

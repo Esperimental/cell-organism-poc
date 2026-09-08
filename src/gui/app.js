@@ -1,5 +1,7 @@
 import { computeMetrics } from '../simulation/sim.js';
 import { GameSession } from '../simulation/session.js';
+import { clampZoom, computeCameraLayout } from './camera.js';
+import { accumulatedSteps, speedRateForIndex } from './speed.js';
 
 const canvas = document.getElementById('dish');
 const ctx = canvas.getContext('2d');
@@ -8,6 +10,11 @@ const els = {
   step: document.getElementById('step'),
   reset: document.getElementById('reset'),
   speed: document.getElementById('speed'),
+  speedLabel: document.getElementById('speedLabel'),
+  zoomOut: document.getElementById('zoomOut'),
+  zoomIn: document.getElementById('zoomIn'),
+  zoomFit: document.getElementById('zoomFit'),
+  zoomLabel: document.getElementById('zoomLabel'),
   tick: document.getElementById('tick'),
   cells: document.getElementById('cells'),
   energy: document.getElementById('energy'),
@@ -27,28 +34,23 @@ const session = new GameSession({ state: scenario, rules, world, seed: 42 });
 const initialState = session.initialState;
 let state = session.state;
 let playing = true;
-let lastStepAt = 0;
+let lastFrameAt = 0;
+let stepCarry = 0;
 let lastEvents = [];
+const camera = { zoom: 1, minZoom: 1, maxZoom: 8 };
 
 function boundsForState() {
   return { minX: world.minX, maxX: world.maxX, minY: world.minY, maxY: world.maxY };
 }
 
 function layout() {
-  const { minX, maxX, minY, maxY } = boundsForState();
-  const cols = maxX - minX + 1;
-  const rows = maxY - minY + 1;
-  const pad = 44;
-  const size = Math.min((canvas.width - pad * 2) / cols, (canvas.height - pad * 2) / rows);
-  const worldWidth = cols * size;
-  const worldHeight = rows * size;
-  return {
-    minX,
-    minY,
-    size,
-    ox: (canvas.width - worldWidth) / 2,
-    oy: (canvas.height - worldHeight) / 2,
-  };
+  return computeCameraLayout({
+    canvasWidth: canvas.width,
+    canvasHeight: canvas.height,
+    world,
+    cells: state.cells,
+    zoom: camera.zoom,
+  });
 }
 
 function worldToCanvas(x, y, l) {
@@ -62,12 +64,23 @@ function drawGrid(l) {
   ctx.save();
   ctx.strokeStyle = 'rgba(124, 181, 169, 0.055)';
   ctx.lineWidth = 1;
-  for (let x = l.ox; x <= canvas.width - l.ox + 1; x += l.size) {
+  for (let gx = l.minX; gx <= l.maxX + 1; gx += 1) {
+    const x = l.ox + (gx - l.minX) * l.size;
+    if (x < 0 || x > canvas.width) continue;
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
   }
-  for (let y = l.oy; y <= canvas.height - l.oy + 1; y += l.size) {
+  for (let gy = l.minY; gy <= l.maxY + 1; gy += 1) {
+    const y = l.oy + (gy - l.minY) * l.size;
+    if (y < 0 || y > canvas.height) continue;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
   }
+
+  const left = l.ox;
+  const top = l.oy;
+  const width = (l.maxX - l.minX + 1) * l.size;
+  const height = (l.maxY - l.minY + 1) * l.size;
+  ctx.strokeStyle = 'rgba(124, 181, 169, 0.18)';
+  ctx.strokeRect(left, top, width, height);
   ctx.restore();
 }
 
@@ -188,11 +201,19 @@ function reset() {
   session.reset();
   state = session.state;
   lastEvents = [];
+  stepCarry = 0;
+  lastFrameAt = 0;
   render(performance.now());
+}
+
+function updateSpeedLabel() {
+  els.speedLabel.textContent = `${speedRateForIndex(els.speed.value)} t/s`;
 }
 
 els.playPause.addEventListener('click', () => {
   playing = !playing;
+  stepCarry = 0;
+  lastFrameAt = 0;
   els.playPause.textContent = playing ? 'Pause' : 'Play';
 });
 els.step.addEventListener('click', () => {
@@ -202,17 +223,38 @@ els.step.addEventListener('click', () => {
   render(performance.now());
 });
 els.reset.addEventListener('click', reset);
+els.speed.addEventListener('input', updateSpeedLabel);
+
+function setZoom(nextZoom) {
+  camera.zoom = clampZoom(nextZoom, camera.minZoom, camera.maxZoom);
+  els.zoomLabel.textContent = `${Math.round(camera.zoom * 100)}%`;
+  render(performance.now());
+}
+
+els.zoomIn.addEventListener('click', () => setZoom(camera.zoom * 1.25));
+els.zoomOut.addEventListener('click', () => setZoom(camera.zoom / 1.25));
+els.zoomFit.addEventListener('click', () => setZoom(1));
+canvas.addEventListener('wheel', (event) => {
+  event.preventDefault();
+  setZoom(camera.zoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15));
+}, { passive: false });
 
 function frame(time) {
-  const stepsPerSecond = Number(els.speed.value);
-  const interval = 1000 / stepsPerSecond;
-  if (playing && time - lastStepAt >= interval) {
-    advance();
-    lastStepAt = time;
+  if (!lastFrameAt) lastFrameAt = time;
+  const elapsedMs = Math.min(250, Math.max(0, time - lastFrameAt));
+  lastFrameAt = time;
+
+  if (playing) {
+    const rate = speedRateForIndex(els.speed.value);
+    const accumulated = accumulatedSteps(elapsedMs, rate, stepCarry, 64);
+    stepCarry = accumulated.carry;
+    for (let i = 0; i < accumulated.steps; i += 1) advance();
   }
+
   render(time);
   requestAnimationFrame(frame);
 }
 
+updateSpeedLabel();
 reset();
 requestAnimationFrame(frame);

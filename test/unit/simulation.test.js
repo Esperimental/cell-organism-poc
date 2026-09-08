@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { connectedComponents, nearestFoodVector, step } from '../../src/simulation/sim.js';
+import { chooseReproductionSpot, connectedComponents, nearestFoodVector, step } from '../../src/simulation/sim.js';
 import { applyReshape } from '../../src/simulation/morphology.js';
 import { rules, mergeWorld } from '../helpers/fixtures.js';
 
@@ -78,4 +78,41 @@ test('applying a reshape charges the moving cell exact reshape energy', () => {
   assert.equal(applyReshape(state, reshape), true);
   assert.equal(state.cells[0].energy, 9.6);
   assert.deepEqual({ x: state.cells[0].x, y: state.cells[0].y }, { x: 0, y: 1 });
+});
+
+test('compact reproduction prefers the adjacent tile touching the most organism cells', () => {
+  const state = {
+    cells: [
+      { id: 1, x: 1, y: 1, energy: 100, storedFood: 10 },
+      { id: 2, x: 0, y: 1, energy: 50, storedFood: 0 },
+      { id: 3, x: 0, y: 2, energy: 50, storedFood: 0 },
+      { id: 4, x: 2, y: 1, energy: 50, storedFood: 0 },
+      { id: 5, x: 2, y: 2, energy: 50, storedFood: 0 },
+    ],
+    food: [],
+  };
+  const spot = chooseReproductionSpot(state.cells[0], state, { minX: -10, maxX: 10, minY: -10, maxY: 10 });
+  assert.deepEqual(
+    { x: spot.x, y: spot.y, touchingCells: spot.touchingCells },
+    { x: 1, y: 2, touchingCells: 3 },
+  );
+});
+
+test('3x3 block birth prefers edge-middle over a corner extension using diagonal support', () => {
+  const cells = [];
+  let id = 1;
+  for (let y = 0; y < 3; y += 1) {
+    for (let x = 0; x < 3; x += 1) {
+      cells.push({ id: id++, x, y, energy: 50, storedFood: 0 });
+    }
+  }
+  const parent = cells[0];
+  const state = { cells, food: [] };
+  const spot = chooseReproductionSpot(parent, state, { minX: -10, maxX: 10, minY: -10, maxY: 10 });
+
+  const edgeMiddleSpots = new Set(['1,-1', '3,1', '1,3', '-1,1']);
+  assert.ok(edgeMiddleSpots.has(`${spot.x},${spot.y}`), `expected edge-middle birth, got ${spot.x},${spot.y}`);
+  assert.equal(spot.touchingCells, 1);
+  assert.equal(spot.diagonalCells, 2);
+  assert.equal(spot.roundnessScore, 4);
 });

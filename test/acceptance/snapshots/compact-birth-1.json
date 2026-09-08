@@ -1,0 +1,16 @@
+{
+  "birth": {
+    "tick": 1,
+    "parentId": 1,
+    "childId": 6,
+    "x": 1,
+    "y": 2,
+    "touchingCells": 3
+  },
+  "cellCountBefore": 5,
+  "cellCountAfter": 6,
+  "exposedEdgesBefore": 12,
+  "exposedEdgesAfter": 10,
+  "compactnessBefore": 2.4,
+  "compactnessAfter": 1.667
+}

@@ -168,6 +168,58 @@ function exposedEdges(cell, map) {
   return DIRS.reduce((count, { dx, dy }) => count + (map.has(key(cell.x + dx, cell.y + dy)) ? 0 : 1), 0);
 }
 
+const DIAGONALS = [
+  { dx: 1, dy: 1 },
+  { dx: 1, dy: -1 },
+  { dx: -1, dy: 1 },
+  { dx: -1, dy: -1 },
+];
+
+function occupiedNeighborCount(x, y, occupied) {
+  return DIRS.reduce((count, { dx, dy }) => count + (occupied.has(key(x + dx, y + dy)) ? 1 : 0), 0);
+}
+
+function occupiedDiagonalCount(x, y, occupied) {
+  return DIAGONALS.reduce((count, { dx, dy }) => count + (occupied.has(key(x + dx, y + dy)) ? 1 : 0), 0);
+}
+
+export function chooseReproductionSpot(parent, state, world, occupiedInput = null) {
+  const occupied = occupiedInput ?? cellMap(state);
+  const center = centroid([...occupied.values()]);
+  const perimeter = new Map();
+
+  for (const cell of occupied.values()) {
+    for (const { dx, dy } of DIRS) {
+      const x = cell.x + dx;
+      const y = cell.y + dy;
+      const positionKey = key(x, y);
+      if (!inBounds(x, y, world) || occupied.has(positionKey)) continue;
+      perimeter.set(positionKey, { x, y });
+    }
+  }
+
+  const candidates = [...perimeter.values()]
+    .map((spot) => {
+      const touchingCells = occupiedNeighborCount(spot.x, spot.y, occupied);
+      const diagonalCells = occupiedDiagonalCount(spot.x, spot.y, occupied);
+      return {
+        ...spot,
+        touchingCells,
+        diagonalCells,
+        roundnessScore: touchingCells * 2 + diagonalCells,
+        centroidDistance: center ? Math.abs(spot.x - center.x) + Math.abs(spot.y - center.y) : 0,
+      };
+    })
+    .sort((a, b) =>
+      (b.roundnessScore - a.roundnessScore)
+      || (b.touchingCells - a.touchingCells)
+      || (b.diagonalCells - a.diagonalCells)
+      || (a.centroidDistance - b.centroidDistance)
+      || (a.y - b.y)
+      || (a.x - b.x));
+  return candidates[0] ?? null;
+}
+
 function reproduce(state, rules, world, events, diagnostics) {
   const occupied = cellMap(state);
   const newborns = [];
@@ -175,9 +227,7 @@ function reproduce(state, rules, world, events, diagnostics) {
     if (cell.energy < rules.reproduction.energyThreshold) { diagnostics.reproductionBlockedEnergy += 1; continue; }
     if (cell.storedFood < rules.reproduction.foodThreshold) { diagnostics.reproductionBlockedFood += 1; continue; }
     if ((cell.lastReproductionTick ?? -Infinity) + rules.reproduction.cooldown > state.tick) continue;
-    const spot = DIRS
-      .map(({ dx, dy }) => ({ x: cell.x + dx, y: cell.y + dy }))
-      .find((p) => inBounds(p.x, p.y, world) && !occupied.has(key(p.x, p.y)));
+    const spot = chooseReproductionSpot(cell, state, world, occupied);
     if (!spot) { diagnostics.reproductionBlockedSpace += 1; continue; }
     cell.energy -= rules.reproduction.energyCost;
     cell.storedFood -= rules.reproduction.foodCost;
@@ -193,7 +243,7 @@ function reproduce(state, rules, world, events, diagnostics) {
     };
     newborns.push(newborn);
     occupied.set(key(spot.x, spot.y), newborn);
-    events.push({ tick: state.tick, type: 'reproduction', parentId: cell.id, childId: newborn.id });
+    events.push({ tick: state.tick, type: 'reproduction', parentId: cell.id, childId: newborn.id, x: newborn.x, y: newborn.y, touchingCells: spot.touchingCells, diagonalCells: spot.diagonalCells, roundnessScore: spot.roundnessScore });
   }
   state.cells.push(...newborns);
 }

@@ -19,17 +19,25 @@
         <button id="reset" class="secondary">Reset</button>
         <label>
           Speed
-          <input id="speed" type="range" min="1" max="12" value="4" />
+          <input id="speed" type="range" min="0" max="8" value="3" step="1" />
+          <span id="speedLabel">8 t/s</span>
         </label>
+        <div class="zoom-controls" aria-label="Camera zoom controls">
+          <button id="zoomOut" class="secondary compact" type="button" aria-label="Zoom out">−</button>
+          <button id="zoomIn" class="secondary compact" type="button" aria-label="Zoom in">+</button>
+          <button id="zoomFit" class="secondary" type="button">Fit</button>
+          <span id="zoomLabel" class="zoom-label">100%</span>
+        </div>
       </div>
     </section>
 
     <section class="content">
       <div class="dish-card">
-        <canvas id="dish" width="1100" height="720" aria-label="Cell simulation"></canvas>
+        <canvas id="dish" width="1100" height="720" aria-label="Cell simulation. Use the mouse wheel to zoom."></canvas>
         <div class="legend">
           <span><i class="cell-dot"></i> Stem cell</span>
           <span><i class="food-dot"></i> Food</span>
+          <span class="legend-hint">Mouse wheel zooms · zoomed view follows organism</span>
         </div>
       </div>
 
@@ -46,7 +54,7 @@
           <div id="events" class="events">Waiting for simulation…</div>
         </div>
 
-        <div class="hint">Cells brighten with energy. Food glows amber. The organism moves one grid step at a time toward sensed food.</div>
+        <div class="hint">Grazing cells breathe with a warmer glow. Zoom out to watch pasture growth and long-range movement; zoom in to inspect individual cells. Speed ranges from careful observation to rapid fast-forward.</div>
       </aside>
     </section>
   </main>
