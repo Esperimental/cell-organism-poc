@@ -120,6 +120,18 @@ export function forageScore(component, state, rules, dx = 0, dy = 0) {
   }, 0);
 }
 
+export function forageSupportRatio(component, state, rules) {
+  if (!component.length) return 0;
+  const occupied = cellMap(state);
+  const maintenance = component.reduce(
+    (sum, cell) => sum + rules.maintenanceEnergy + exposedEdges(cell, occupied) * rules.exposedEdgeEnergyCost,
+    0,
+  );
+  if (maintenance <= 0) return Infinity;
+  const potentialEnergy = forageScore(component, state, rules) * rules.stem.digestionEfficiency;
+  return potentialEnergy / maintenance;
+}
+
 function consumeFood(state, rules, events) {
   const fmap = foodMap(state);
   for (const cell of [...state.cells].sort((a, b) => a.id - b.id)) {
@@ -248,6 +260,79 @@ function reproduce(state, rules, world, events, diagnostics) {
   state.cells.push(...newborns);
 }
 
+export function chooseSacrificeCell(component, state, direction) {
+  if (!component || component.length <= 1) return null;
+  const occupied = cellMap(state);
+  const dx = direction?.dx ?? 0;
+  const dy = direction?.dy ?? 0;
+  const center = centroid(component);
+  const candidates = [];
+
+  for (const cell of component) {
+    const touchingCells = occupiedNeighborCount(cell.x, cell.y, occupied);
+    if (touchingCells >= 4) continue;
+    const reduced = component.filter((candidate) => candidate.id !== cell.id);
+    if (connectedComponents({ tick: state.tick, cells: reduced, food: [] }).length > 1) continue;
+    const rearScore = center ? -((cell.x - center.x) * dx + (cell.y - center.y) * dy) : 0;
+    candidates.push({ cell, touchingCells, rearScore });
+  }
+
+  candidates.sort((a, b) =>
+    (a.touchingCells - b.touchingCells)
+    || (b.rearScore - a.rearScore)
+    || (a.cell.id - b.cell.id));
+  return candidates[0] ?? null;
+}
+
+function redistributeRecoveredEnergy(state, amount, maxEnergy) {
+  if (amount <= 0 || !state.cells.length) return 0;
+  let remaining = amount;
+  let recipients = state.cells.filter((cell) => cell.energy < maxEnergy - 1e-9);
+  while (remaining > 1e-9 && recipients.length) {
+    const share = remaining / recipients.length;
+    let distributed = 0;
+    for (const cell of recipients) {
+      const accepted = Math.min(share, maxEnergy - cell.energy);
+      cell.energy += accepted;
+      distributed += accepted;
+    }
+    if (distributed <= 1e-9) break;
+    remaining -= distributed;
+    recipients = state.cells.filter((cell) => cell.energy < maxEnergy - 1e-9);
+  }
+  return amount - remaining;
+}
+
+export function sacrificeForTravel(state, rules, component, direction, events) {
+  const config = rules.survival?.sacrifice;
+  if (!config?.enabled || component.length <= (config.minCells ?? 2)) return null;
+  const meanEnergy = component.reduce((sum, cell) => sum + cell.energy, 0) / component.length;
+  const threshold = rules.stem.maxEnergy * (config.meanEnergyThresholdFraction ?? 0.2);
+  if (meanEnergy >= threshold) return null;
+
+  const selected = chooseSacrificeCell(component, state, direction);
+  if (!selected) return null;
+  const sacrificed = selected.cell;
+  const recoveryFraction = config.energyRecoveryFraction ?? 0.8;
+  const recoverable = sacrificed.energy * recoveryFraction;
+  state.cells = state.cells.filter((cell) => cell.id !== sacrificed.id);
+  const recovered = redistributeRecoveredEnergy(state, recoverable, rules.stem.maxEnergy);
+  const event = {
+    tick: state.tick,
+    type: 'sacrifice',
+    cellId: sacrificed.id,
+    x: sacrificed.x,
+    y: sacrificed.y,
+    energyBefore: sacrificed.energy,
+    recoveredEnergy: recovered,
+    lostEnergy: sacrificed.energy - recovered,
+    touchingCells: selected.touchingCells,
+    rearScore: selected.rearScore,
+  };
+  events.push(event);
+  return event;
+}
+
 function enforceInvariants(state, rules, world) {
   const positions = new Set();
   const ids = new Set();
@@ -308,14 +393,22 @@ export function step(stateInput, rules, world = null, fallbackDirection = null, 
   if (!options.skipTranslation) for (const component of connectedComponents(state)) {
     const currentForage = forageScore(component, state, rules);
     let direction = null;
+    const forcedDirection = options.preferFallbackDirection && fallbackDirection ? fallbackDirection : null;
 
-    if (currentForage > 0) {
+    if (forcedDirection) {
+      direction = forcedDirection;
+    } else if (currentForage > 0) {
       const improvement = rules.grazing?.moveForageImprovement ?? 1.15;
       const candidates = DIRS
         .filter(({ dx, dy }) => canTranslate(component, state, dx, dy, world))
         .map(({ dx, dy }) => ({ dx, dy, score: forageScore(component, state, rules, dx, dy) }))
         .sort((a, b) => (b.score - a.score) || (a.dy - b.dy) || (a.dx - b.dx));
-      if (candidates[0]?.score > currentForage * improvement) direction = candidates[0];
+      if (candidates[0]?.score > currentForage * improvement) {
+        direction = candidates[0];
+      } else if (forageSupportRatio(component, state, rules) < (rules.grazing?.minSupportRatio ?? 1.1)) {
+        const sensed = nearestFoodVector(component, state, rules);
+        direction = (sensed.dx === 0 && sensed.dy === 0 && fallbackDirection) ? fallbackDirection : sensed;
+      }
     } else {
       const sensed = nearestFoodVector(component, state, rules);
       direction = (sensed.dx === 0 && sensed.dy === 0 && fallbackDirection) ? fallbackDirection : sensed;
@@ -324,13 +417,17 @@ export function step(stateInput, rules, world = null, fallbackDirection = null, 
     const dx = direction?.dx ?? 0;
     const dy = direction?.dy ?? 0;
     if (!canTranslate(component, state, dx, dy, world)) continue;
-    if (!component.every((c) => c.energy >= rules.movementEnergy)) continue;
-    for (const cell of component) {
+    if (dx || dy) sacrificeForTravel(state, rules, component, { dx, dy }, events);
+    const liveIds = new Set(state.cells.map((cell) => cell.id));
+    const movingComponent = component.filter((cell) => liveIds.has(cell.id));
+    if (!movingComponent.length || !canTranslate(movingComponent, state, dx, dy, world)) continue;
+    if (!movingComponent.every((c) => c.energy >= rules.movementEnergy)) continue;
+    for (const cell of movingComponent) {
       cell.x += dx;
       cell.y += dy;
       cell.energy -= rules.movementEnergy;
     }
-    if (dx || dy) events.push({ tick: state.tick, type: 'movement', cellIds: component.map((c) => c.id), dx, dy, forageBefore: currentForage, forageAfter: forageScore(component, state, rules) });
+    if (dx || dy) events.push({ tick: state.tick, type: 'movement', cellIds: movingComponent.map((c) => c.id), dx, dy, forageBefore: currentForage, forageAfter: forageScore(movingComponent, state, rules) });
   }
 
   if (!options.skipConsumption) consumeFood(state, rules, events);

@@ -1,4 +1,4 @@
-import { clone, computeMetrics, connectedComponents, nearestFoodVector, normalizeState, step as stepBiology } from './sim.js';
+import { clone, computeMetrics, connectedComponents, forageScore, forageSupportRatio, nearestFoodVector, normalizeState, step as stepBiology } from './sim.js';
 import { nextRandom, normalizeSeed, randomInt } from './rng.js';
 import { foodContactCount } from './morphology.js';
 
@@ -133,10 +133,107 @@ function chooseRandomDirection(state) {
   return SEARCH_DIRS[roll.value];
 }
 
+function hasUnderSupportedGrazing(state, rules) {
+  const minimumSupport = rules.grazing?.minSupportRatio ?? 1.1;
+  return connectedComponents(state).some((component) =>
+    forageScore(component, state, rules) > 0
+    && forageSupportRatio(component, state, rules) < minimumSupport);
+}
+
+function componentCenter(component) {
+  if (!component.length) return { x: 0, y: 0 };
+  return {
+    x: component.reduce((sum, cell) => sum + cell.x, 0) / component.length,
+    y: component.reduce((sum, cell) => sum + cell.y, 0) / component.length,
+  };
+}
+
+function largestComponent(state) {
+  return connectedComponents(state).sort((a, b) => b.length - a.length)[0] ?? [];
+}
+
+export function chooseMigrationTarget(state, rules) {
+  const component = largestComponent(state);
+  if (!component.length) return null;
+  const center = componentCenter(component);
+  const grazing = rules.grazing ?? {};
+  const minDistance = grazing.migrationMinDistance ?? 10;
+  const senseRadius = grazing.migrationSenseRadius ?? 60;
+  const minBiomass = grazing.migrationTargetMinBiomass ?? 8;
+
+  const candidates = state.food
+    .filter((food) => food.amount >= minBiomass)
+    .map((food) => ({
+      x: food.x,
+      y: food.y,
+      amount: food.amount,
+      distance: Math.abs(food.x - center.x) + Math.abs(food.y - center.y),
+    }))
+    .filter((food) => food.distance >= minDistance && food.distance <= senseRadius)
+    .sort((a, b) =>
+      (a.distance - b.distance)
+      || (b.amount - a.amount)
+      || (a.y - b.y)
+      || (a.x - b.x));
+  return candidates[0] ?? null;
+}
+
+function directionTowardTarget(component, target) {
+  const center = componentCenter(component);
+  const dx = target.x - center.x;
+  const dy = target.y - center.y;
+  if (Math.abs(dx) >= Math.abs(dy) && Math.abs(dx) > 0.001) return { dx: Math.sign(dx), dy: 0 };
+  if (Math.abs(dy) > 0.001) return { dx: 0, dy: Math.sign(dy) };
+  return null;
+}
+
+function migrationDirectionForTick(state, rules) {
+  const component = largestComponent(state);
+  if (!component.length) {
+    state.migration = null;
+    return { handled: false, direction: null };
+  }
+
+  const minimumSupport = rules.grazing?.minSupportRatio ?? 1.1;
+  const currentForage = forageScore(component, state, rules);
+  const currentSupport = currentForage > 0 ? forageSupportRatio(component, state, rules) : 0;
+
+  if (state.migration?.target) {
+    const target = state.migration.target;
+    const reachedTarget = component.some((cell) => cell.x === target.x && cell.y === target.y);
+    if (reachedTarget && currentForage > 0 && currentSupport >= minimumSupport) {
+      state.migration = null;
+      return { handled: false, direction: null };
+    }
+    if (reachedTarget && currentSupport < minimumSupport) state.migration = null;
+  }
+
+  if (!state.migration?.target && currentForage > 0 && currentSupport < minimumSupport) {
+    const target = chooseMigrationTarget(state, rules);
+    if (target) {
+      state.migration = {
+        target: { x: target.x, y: target.y },
+        startedTick: state.tick,
+      };
+    }
+  }
+
+  if (!state.migration?.target) return { handled: false, direction: null };
+
+  const moveEveryTicks = Math.max(1, rules.search?.moveEveryTicks ?? 2);
+  if ((state.tick + 1) % moveEveryTicks !== 0) return { handled: true, direction: null };
+  return { handled: true, direction: directionTowardTarget(component, state.migration.target) };
+}
+
 function searchDirectionForTick(state, rules) {
   const search = rules.search ?? {};
   if (!search.enabled || !state.cells.length) return null;
-  if (anyFoodSensed(state, rules)) return null;
+
+  const migration = migrationDirectionForTick(state, rules);
+  if (migration.handled) return migration.direction;
+
+  const forceEscapeSearch = hasUnderSupportedGrazing(state, rules);
+  if (anyFoodSensed(state, rules) && !forceEscapeSearch) return null;
 
   state.search ??= { direction: null, ticksInDirection: 0 };
   const moveEveryTicks = Math.max(1, search.moveEveryTicks ?? 2);
@@ -161,8 +258,10 @@ function searchDirectionForTick(state, rules) {
 
 function classifyActivity(stateBefore, stateAfter, rules, events, searchDirection) {
   if (!stateAfter.cells.length) return { mode: 'DEAD', reason: 'no_cells' };
+  if (events.some((event) => event.type === 'sacrifice')) return { mode: 'SURVIVAL', reason: 'sacrificing_cells_for_travel' };
   if (events.some((event) => event.type === 'food_consumed')) return { mode: 'FEEDING', reason: 'grazing_underfoot' };
   const moved = events.some((event) => event.type === 'movement');
+  if (moved && stateAfter.migration?.target) return { mode: 'MIGRATING', reason: 'committed_to_new_pasture' };
   if (moved && searchDirection) return { mode: 'SEARCHING', reason: 'no_food_sensed' };
   if (moved) return { mode: 'SEEKING', reason: 'food_sensed' };
   if (!anyFoodSensed(stateBefore, rules)) return { mode: 'SEARCHING', reason: searchDirection ? 'movement_blocked_or_low_energy' : 'search_wait_tick' };
@@ -190,7 +289,17 @@ export class GameSession {
     maybeSpawnFood(this.state, this.world, worldEvents);
     const before = clone(this.state);
     const searchDirection = searchDirectionForTick(this.state, this.rules);
-    const result = stepBiology(this.state, this.rules, this.world, searchDirection);
+    const migrationActive = Boolean(this.state.migration?.target);
+    const movementOptions = migrationActive
+      ? (searchDirection ? { preferFallbackDirection: true } : { skipTranslation: true })
+      : {};
+    const result = stepBiology(
+      this.state,
+      this.rules,
+      this.world,
+      searchDirection,
+      movementOptions,
+    );
     this.state = result.state;
     this.state.activity = classifyActivity(before, this.state, this.rules, result.events, searchDirection);
     const activityEvent = { tick: this.state.tick, type: 'activity', ...this.state.activity };
@@ -234,6 +343,9 @@ export class GameSession {
       endingCells: this.state.cells.length,
       starvationDeaths: events.filter((e) => e.type === 'death').length,
       reproductionEvents: events.filter((e) => e.type === 'reproduction').length,
+      sacrificeEvents: events.filter((e) => e.type === 'sacrifice').length,
+      sacrificeEnergyRecovered: events.filter((e) => e.type === 'sacrifice').reduce((s, e) => s + e.recoveredEnergy, 0),
+      sacrificeEnergyLost: events.filter((e) => e.type === 'sacrifice').reduce((s, e) => s + e.lostEnergy, 0),
       foodSpawnEvents: events.filter((e) => e.type === 'food_spawned').length,
       foodSpawned: events.filter((e) => e.type === 'food_spawned').reduce((s, e) => s + e.amount, 0),
       foodSpreadEvents: events.filter((e) => e.type === 'food_spread').length,

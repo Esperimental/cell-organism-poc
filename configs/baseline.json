@@ -5,7 +5,11 @@
   "foodSenseRadius": 8,
   "foodSenseMinBiomass": 2,
   "grazing": {
-    "moveForageImprovement": 1.2
+    "moveForageImprovement": 1.2,
+    "minSupportRatio": 1.3,
+    "migrationMinDistance": 10,
+    "migrationSenseRadius": 60,
+    "migrationTargetMinBiomass": 8
   },
   "reshape": {
     "enabled": true,
@@ -19,6 +23,14 @@
     "turnChance": 0.08,
     "maxHeadingTicks": 18
   },
+  "survival": {
+    "sacrifice": {
+      "enabled": true,
+      "meanEnergyThresholdFraction": 0.2,
+      "energyRecoveryFraction": 0.8,
+      "minCells": 2
+    }
+  },
   "stem": {
     "maxEnergy": 100,
     "foodCapacity": 20,
@@ -31,7 +43,7 @@
   },
   "reproduction": {
     "energyThreshold": 88,
-    "foodThreshold": 4,
+    "foodThreshold": 2,
     "energyCost": 35,
     "foodCost": 2,
     "childEnergy": 35,

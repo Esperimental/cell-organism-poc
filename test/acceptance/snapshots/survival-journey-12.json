@@ -1,0 +1,14 @@
+[
+  { "tick": 1, "cells": 5, "meanEnergy": 20.23, "activity": "SURVIVAL", "sacrifices": 1, "moved": true },
+  { "tick": 2, "cells": 5, "meanEnergy": 19.58, "activity": "SEEKING", "sacrifices": 0, "moved": true },
+  { "tick": 3, "cells": 4, "meanEnergy": 22.85, "activity": "SURVIVAL", "sacrifices": 1, "moved": true },
+  { "tick": 4, "cells": 4, "meanEnergy": 22.2, "activity": "SEEKING", "sacrifices": 0, "moved": true },
+  { "tick": 5, "cells": 4, "meanEnergy": 21.55, "activity": "SEEKING", "sacrifices": 0, "moved": true },
+  { "tick": 6, "cells": 4, "meanEnergy": 22.4, "activity": "FEEDING", "sacrifices": 0, "moved": true },
+  { "tick": 7, "cells": 4, "meanEnergy": 23.58, "activity": "FEEDING", "sacrifices": 0, "moved": false },
+  { "tick": 8, "cells": 4, "meanEnergy": 24.68, "activity": "FEEDING", "sacrifices": 0, "moved": false },
+  { "tick": 9, "cells": 4, "meanEnergy": 25.72, "activity": "FEEDING", "sacrifices": 0, "moved": false },
+  { "tick": 10, "cells": 4, "meanEnergy": 26.69, "activity": "FEEDING", "sacrifices": 0, "moved": false },
+  { "tick": 11, "cells": 4, "meanEnergy": 27.6, "activity": "FEEDING", "sacrifices": 0, "moved": false },
+  { "tick": 12, "cells": 4, "meanEnergy": 28.45, "activity": "FEEDING", "sacrifices": 0, "moved": false }
+]

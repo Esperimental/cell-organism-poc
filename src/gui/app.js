@@ -37,6 +37,7 @@ let playing = true;
 let lastFrameAt = 0;
 let stepCarry = 0;
 let lastEvents = [];
+let remnants = [];
 const camera = { zoom: 1, minZoom: 1, maxZoom: 8 };
 
 function boundsForState() {
@@ -118,6 +119,27 @@ function drawConnections(l) {
   ctx.restore();
 }
 
+function drawRemnants(l, time) {
+  const lifetime = 1800;
+  remnants = remnants.filter((remnant) => time - remnant.createdAt < lifetime);
+  for (const remnant of remnants) {
+    const age = Math.max(0, time - remnant.createdAt);
+    const alpha = Math.max(0, 1 - age / lifetime);
+    const p = worldToCanvas(remnant.x, remnant.y, l);
+    const r = l.size * (0.34 - 0.08 * (age / lifetime));
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.8;
+    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 1.7);
+    glow.addColorStop(0, 'rgba(210, 150, 92, .75)');
+    glow.addColorStop(1, 'rgba(120, 70, 45, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r * 1.7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(126, 92, 72, .72)';
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+
 function drawCells(l, time) {
   const grazingCellIds = new Set(lastEvents.filter((event) => event.type === 'food_consumed').map((event) => event.cellId));
   for (const cell of state.cells) {
@@ -162,6 +184,7 @@ function render(time = 0) {
   drawGrid(l);
   drawFood(l, time);
   drawConnections(l);
+  drawRemnants(l, time);
   drawCells(l, time);
 
   const metrics = computeMetrics(state, initialState);
@@ -184,6 +207,7 @@ function formatEvent(e) {
   if (e.type === 'food_spawned') return `Food appeared at ${e.x}, ${e.y} (+${e.amount})`;
   if (e.type === 'food_consumed') return `Cell ${e.cellId} grazed ${e.amount.toFixed(2)}`;
   if (e.type === 'reproduction') return `Cell ${e.parentId} divided → ${e.childId}`;
+  if (e.type === 'sacrifice') return `Cell ${e.cellId} sacrificed (${e.recoveredEnergy.toFixed(1)} energy recovered)`;
   if (e.type === 'death') return `Cell ${e.cellId} died`;
   if (e.type === 'digestion') return `Cell ${e.cellId} digested ${e.amount.toFixed(1)}`;
   if (e.type === 'energy_transfer') return `Energy ${e.from} → ${e.to}`;
@@ -195,12 +219,18 @@ function advance() {
   const result = session.step();
   state = session.state;
   lastEvents = result.events;
+  const createdAt = performance.now();
+  for (const event of result.events.filter((candidate) => candidate.type === 'sacrifice')) {
+    remnants.push({ x: event.x, y: event.y, createdAt });
+  }
+  if (remnants.length > 200) remnants = remnants.slice(-200);
 }
 
 function reset() {
   session.reset();
   state = session.state;
   lastEvents = [];
+  remnants = [];
   stepCarry = 0;
   lastFrameAt = 0;
   render(performance.now());

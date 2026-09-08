@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chooseReproductionSpot, connectedComponents, nearestFoodVector, step } from '../../src/simulation/sim.js';
+import { chooseReproductionSpot, chooseSacrificeCell, connectedComponents, nearestFoodVector, step } from '../../src/simulation/sim.js';
 import { applyReshape } from '../../src/simulation/morphology.js';
 import { rules, mergeWorld } from '../helpers/fixtures.js';
 
@@ -115,4 +115,54 @@ test('3x3 block birth prefers edge-middle over a corner extension using diagonal
   assert.equal(spot.touchingCells, 1);
   assert.equal(spot.diagonalCells, 2);
   assert.equal(spot.roundnessScore, 4);
+});
+
+
+test('travel sacrifice prefers the least-connected rear cell without breaking connectivity', () => {
+  const state = {
+    tick: 0,
+    cells: [
+      { id: 1, x: 0, y: 0, energy: 10, storedFood: 0 },
+      { id: 2, x: 1, y: 0, energy: 10, storedFood: 0 },
+      { id: 3, x: 2, y: 0, energy: 10, storedFood: 0 },
+    ],
+    food: [],
+  };
+  const selected = chooseSacrificeCell(state.cells, state, { dx: 1, dy: 0 });
+  assert.equal(selected.cell.id, 1);
+  assert.equal(selected.touchingCells, 1);
+});
+
+test('travel sacrifice recovers 80 percent of sacrificed energy and loses 20 percent', () => {
+  const localRules = structuredClone(rules);
+  localRules.maintenanceEnergy = 0;
+  localRules.exposedEdgeEnergyCost = 0;
+  localRules.movementEnergy = 0;
+  localRules.stem.energyTransferRate = 0;
+  localRules.stem.foodTransferRate = 0;
+  localRules.stem.digestionRate = 0;
+  localRules.reproduction.energyThreshold = 101;
+  localRules.survival.sacrifice.meanEnergyThresholdFraction = 0.2;
+  localRules.survival.sacrifice.energyRecoveryFraction = 0.8;
+  const state = {
+    tick: 0,
+    cells: [
+      { id: 1, x: 0, y: 0, type: 'stem', energy: 10, storedFood: 0 },
+      { id: 2, x: 1, y: 0, type: 'stem', energy: 10, storedFood: 0 },
+      { id: 3, x: 2, y: 0, type: 'stem', energy: 10, storedFood: 0 },
+    ],
+    food: [],
+  };
+  const result = step(state, localRules, mergeWorld({ foodSpawn: { enabled: false } }), { dx: 1, dy: 0 });
+  const sacrifice = result.events.find((event) => event.type === 'sacrifice');
+  const totalEnergy = result.state.cells.reduce((sum, cell) => sum + cell.energy, 0);
+
+  assert.ok(sacrifice);
+  assert.equal(sacrifice.cellId, 1);
+  assert.equal(sacrifice.energyBefore, 10);
+  assert.equal(sacrifice.recoveredEnergy, 8);
+  assert.equal(sacrifice.lostEnergy, 2);
+  assert.equal(result.state.cells.length, 2);
+  assert.equal(totalEnergy, 28);
+  assert.equal(connectedComponents(result.state).length, 1);
 });

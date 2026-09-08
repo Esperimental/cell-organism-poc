@@ -173,3 +173,93 @@ test('3x3 organism reproduces from a corner parent into an edge-middle perimeter
   assert.equal(birth.diagonalCells, 2);
   assert.equal(birth.roundnessScore, 4);
 });
+
+test('low-energy travelling organism sacrifices one rear cell and keeps moving toward sensed food', () => {
+  const localRules = structuredClone(rules);
+  localRules.maintenanceEnergy = 0;
+  localRules.exposedEdgeEnergyCost = 0;
+  localRules.stem.energyTransferRate = 0;
+  localRules.stem.foodTransferRate = 0;
+  localRules.stem.digestionRate = 0;
+  localRules.reproduction.energyThreshold = 101;
+  localRules.survival.sacrifice.meanEnergyThresholdFraction = 0.2;
+  localRules.survival.sacrifice.energyRecoveryFraction = 0.8;
+  const localWorld = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
+  const state = {
+    tick: 0,
+    cells: [
+      { id: 1, x: 0, y: 0, type: 'stem', energy: 10, storedFood: 0 },
+      { id: 2, x: 1, y: 0, type: 'stem', energy: 10, storedFood: 0 },
+      { id: 3, x: 2, y: 0, type: 'stem', energy: 10, storedFood: 0 },
+    ],
+    food: [{ x: 6, y: 0, amount: 10, capacity: 10, growthRate: 0 }],
+  };
+  const session = new GameSession({ state, rules: localRules, world: localWorld, seed: 1 });
+  const result = session.step();
+  const sacrifice = result.events.find((event) => event.type === 'sacrifice');
+  const movement = result.events.find((event) => event.type === 'movement');
+
+  assert.ok(sacrifice);
+  assert.equal(sacrifice.cellId, 1);
+  assert.ok(movement);
+  assert.equal(movement.dx, 1);
+  assert.equal(session.state.cells.length, 2);
+  assert.deepEqual(session.state.cells.map((cell) => cell.x).sort((a, b) => a - b), [2, 3]);
+});
+
+test('under-supported grazing footprint moves toward richer sensed food even before current grass is empty', () => {
+  const localRules = structuredClone(rules);
+  localRules.search.enabled = false;
+  localRules.reproduction.energyThreshold = 101;
+  localRules.survival.sacrifice.enabled = false;
+  localRules.grazing.minSupportRatio = 1.1;
+  const localWorld = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
+  const state = {
+    tick: 0,
+    cells: [
+      { id: 1, x: 0, y: 0, type: 'stem', energy: 80, storedFood: 0 },
+      { id: 2, x: 1, y: 0, type: 'stem', energy: 80, storedFood: 0 },
+      { id: 3, x: 2, y: 0, type: 'stem', energy: 80, storedFood: 0 },
+    ],
+    food: [
+      { x: 0, y: 0, amount: 2, capacity: 10, growthRate: 0 },
+      { x: 5, y: 0, amount: 10, capacity: 10, growthRate: 0 },
+    ],
+  };
+  const session = new GameSession({ state, rules: localRules, world: localWorld, seed: 1 });
+  const result = session.step();
+  const movement = result.events.find((event) => event.type === 'movement');
+
+  assert.ok(movement);
+  assert.equal(movement.dx, 1);
+  assert.equal(movement.dy, 0);
+});
+
+test('under-supported grazing uses escape heading when sensed food vector cancels out', () => {
+  const localRules = structuredClone(rules);
+  localRules.reproduction.energyThreshold = 101;
+  localRules.survival.sacrifice.enabled = false;
+  localRules.grazing.minSupportRatio = 1.1;
+  const localWorld = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
+  const state = {
+    tick: 1,
+    search: { direction: { dx: 1, dy: 0 }, ticksInDirection: 1 },
+    cells: [
+      { id: 1, x: 0, y: 0, type: 'stem', energy: 80, storedFood: 0 },
+      { id: 2, x: 1, y: 0, type: 'stem', energy: 80, storedFood: 0 },
+      { id: 3, x: 2, y: 0, type: 'stem', energy: 80, storedFood: 0 }
+    ],
+    food: [
+      { x: 1, y: 0, amount: 2, capacity: 20, growthRate: 0 },
+      { x: -4, y: 0, amount: 10, capacity: 10, growthRate: 0 },
+      { x: 6, y: 0, amount: 10, capacity: 10, growthRate: 0 }
+    ]
+  };
+  const session = new GameSession({ state, rules: localRules, world: localWorld, seed: 1 });
+  const result = session.step();
+  const movement = result.events.find((event) => event.type === 'movement');
+
+  assert.ok(movement);
+  assert.equal(movement.dx, 1);
+  assert.equal(movement.dy, 0);
+});
