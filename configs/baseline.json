@@ -1,0 +1,40 @@
+{
+  "maintenanceEnergy": 0.15,
+  "exposedEdgeEnergyCost": 0.05,
+  "movementEnergy": 0.4,
+  "foodSenseRadius": 8,
+  "foodSenseMinBiomass": 2,
+  "grazing": {
+    "moveForageImprovement": 1.2
+  },
+  "reshape": {
+    "enabled": true,
+    "cellMoveEnergy": 0.4,
+    "foodContactWeight": 10,
+    "compactnessWeight": 1
+  },
+  "search": {
+    "enabled": true,
+    "moveEveryTicks": 2,
+    "turnChance": 0.08,
+    "maxHeadingTicks": 18
+  },
+  "stem": {
+    "maxEnergy": 100,
+    "foodCapacity": 20,
+    "foodIntakeRate": 1,
+    "foodIntakeMinFraction": 0.15,
+    "digestionRate": 2,
+    "digestionEfficiency": 3,
+    "energyTransferRate": 0.12,
+    "foodTransferRate": 0.1
+  },
+  "reproduction": {
+    "energyThreshold": 88,
+    "foodThreshold": 4,
+    "energyCost": 35,
+    "foodCost": 2,
+    "childEnergy": 35,
+    "cooldown": 8
+  }
+}

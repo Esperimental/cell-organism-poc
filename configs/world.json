@@ -1,0 +1,27 @@
+{
+  "minX": -15,
+  "maxX": 15,
+  "minY": -10,
+  "maxY": 10,
+  "foodPatches": {
+    "defaultCapacity": 24,
+    "defaultGrowthRate": 0.3
+  },
+  "foodSpread": {
+    "enabled": true,
+    "chancePerRootPerTick": 0.012,
+    "minBiomassToSpread": 6,
+    "seedAmount": 1,
+    "newRootCapacity": 18,
+    "newRootGrowthRate": 0.225,
+    "maxRoots": 140
+  },
+  "foodSpawn": {
+    "enabled": true,
+    "chancePerTick": 0.01,
+    "minAmount": 1,
+    "maxAmount": 3,
+    "maxTotalFood": 120,
+    "maxPlacementAttempts": 20
+  }
+}

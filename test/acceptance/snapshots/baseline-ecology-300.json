@@ -1,0 +1,15 @@
+{
+  "survivalRate": 1,
+  "meanFinalCells": 13.9,
+  "medianFinalCells": 14,
+  "meanPeakCells": 13.9,
+  "medianPeakCells": 14,
+  "maxPeakCells": 19,
+  "meanLargestComponentFraction": 1,
+  "meanFoodConsumed": 570.305,
+  "meanReproductionEvents": 8.9,
+  "searchingFraction": 0,
+  "seekingFraction": 0.017,
+  "feedingFraction": 0.983,
+  "blockedFraction": 0
+}

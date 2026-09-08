@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cell Organism POC</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="topbar">
+      <div>
+        <div class="eyebrow">CELL ORGANISM POC</div>
+        <h1>Petri Dish</h1>
+      </div>
+      <div class="controls">
+        <button id="playPause">Pause</button>
+        <button id="step">Step</button>
+        <button id="reset" class="secondary">Reset</button>
+        <label>
+          Speed
+          <input id="speed" type="range" min="1" max="12" value="4" />
+        </label>
+      </div>
+    </section>
+
+    <section class="content">
+      <div class="dish-card">
+        <canvas id="dish" width="1100" height="720" aria-label="Cell simulation"></canvas>
+        <div class="legend">
+          <span><i class="cell-dot"></i> Stem cell</span>
+          <span><i class="food-dot"></i> Food</span>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <div class="metric"><span>Tick</span><strong id="tick">0</strong></div>
+        <div class="metric"><span>Cells</span><strong id="cells">0</strong></div>
+        <div class="metric"><span>Mean energy</span><strong id="energy">0</strong></div>
+        <div class="metric"><span>Stored food</span><strong id="storedFood">0</strong></div>
+        <div class="metric"><span>Food left</span><strong id="foodLeft">0</strong></div>
+        <div class="metric"><span>Connected</span><strong id="connected">—</strong></div>
+
+        <div class="status-card">
+          <div class="status-title">Last events</div>
+          <div id="events" class="events">Waiting for simulation…</div>
+        </div>
+
+        <div class="hint">Cells brighten with energy. Food glows amber. The organism moves one grid step at a time toward sensed food.</div>
+      </aside>
+    </section>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

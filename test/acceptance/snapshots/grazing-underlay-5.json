@@ -1,0 +1,7 @@
+[
+  { "tick": 1, "activity": "FEEDING", "grazingCells": 4, "movementEvents": 0, "foodConsumed": 4, "meanEnergy": 57.75, "foodBiomass": 44 },
+  { "tick": 2, "activity": "FEEDING", "grazingCells": 4, "movementEvents": 0, "foodConsumed": 3.667, "meanEnergy": 60.25, "foodBiomass": 40.333 },
+  { "tick": 3, "activity": "FEEDING", "grazingCells": 4, "movementEvents": 0, "foodConsumed": 3.361, "meanEnergy": 62.521, "foodBiomass": 36.972 },
+  { "tick": 4, "activity": "FEEDING", "grazingCells": 4, "movementEvents": 0, "foodConsumed": 3.081, "meanEnergy": 64.582, "foodBiomass": 33.891 },
+  { "tick": 5, "activity": "FEEDING", "grazingCells": 4, "movementEvents": 0, "foodConsumed": 2.824, "meanEnergy": 66.45, "foodBiomass": 31.067 }
+]

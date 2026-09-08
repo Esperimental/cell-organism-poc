@@ -1,0 +1,15 @@
+{
+  "tick": 0,
+  "cells": [
+    { "id": 1, "x": 0, "y": 0, "type": "stem", "energy": 70, "storedFood": 0 },
+    { "id": 2, "x": 1, "y": 0, "type": "stem", "energy": 70, "storedFood": 0 },
+    { "id": 3, "x": 2, "y": 0, "type": "stem", "energy": 70, "storedFood": 0 },
+    { "id": 4, "x": 0, "y": 1, "type": "stem", "energy": 70, "storedFood": 0 },
+    { "id": 5, "x": 1, "y": 1, "type": "stem", "energy": 70, "storedFood": 0 }
+  ],
+  "food": [
+    { "x": 8, "y": 0, "amount": 18 },
+    { "x": 8, "y": 1, "amount": 18 },
+    { "x": 9, "y": 0, "amount": 18 }
+  ]
+}

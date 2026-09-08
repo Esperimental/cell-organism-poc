@@ -1,0 +1,47 @@
+[
+  {
+    "tick": 1,
+    "activity": "RESHAPING",
+    "contacts": 2,
+    "reshapeEvents": 1,
+    "movementEvents": 0,
+    "foodConsumed": 0,
+    "meanEnergy": 69.65
+  },
+  {
+    "tick": 2,
+    "activity": "FEEDING",
+    "contacts": 2,
+    "reshapeEvents": 0,
+    "movementEvents": 0,
+    "foodConsumed": 2,
+    "meanEnergy": 70.58
+  },
+  {
+    "tick": 3,
+    "activity": "FEEDING",
+    "contacts": 2,
+    "reshapeEvents": 0,
+    "movementEvents": 0,
+    "foodConsumed": 2,
+    "meanEnergy": 71.51
+  },
+  {
+    "tick": 4,
+    "activity": "FEEDING",
+    "contacts": 2,
+    "reshapeEvents": 0,
+    "movementEvents": 0,
+    "foodConsumed": 2,
+    "meanEnergy": 72.44
+  },
+  {
+    "tick": 5,
+    "activity": "FEEDING",
+    "contacts": 2,
+    "reshapeEvents": 0,
+    "movementEvents": 0,
+    "foodConsumed": 2,
+    "meanEnergy": 73.37
+  }
+]
