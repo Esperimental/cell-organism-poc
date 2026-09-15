@@ -1,5 +1,34 @@
 [
   {
+    "id": "body-language",
+    "name": "Body language — two food patches",
+    "description": "Fixed small world: reach, gather, feed, then leave for the second patch. Experimental body response; no random food or regrowth.",
+    "scenario": "scenarios/body-language.json",
+    "seed": 1,
+    "rulesOverrides": {
+      "reshape": { "responsive": true, "moveEveryTicks": 3, "reachRadius": 3, "approachWeight": 3 },
+      "grazing": { "migrationTargetJitterFraction": 0 }
+    },
+    "worldOverrides": {
+      "minX": -4, "maxX": 9, "minY": -3, "maxY": 8,
+      "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false }
+    },
+    "view": { "tick": 60, "speed": 1, "zoom": 1 }
+  },
+  {
+    "id": "body-language-control",
+    "name": "Body language — original behaviour",
+    "description": "The identical two-patch scene with the new body response switched off, for comparison.",
+    "scenario": "scenarios/body-language.json",
+    "seed": 1,
+    "rulesOverrides": { "grazing": { "migrationTargetJitterFraction": 0 } },
+    "worldOverrides": {
+      "minX": -4, "maxX": 9, "minY": -3, "maxY": 8,
+      "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false }
+    },
+    "view": { "tick": 60, "speed": 1, "zoom": 1 }
+  },
+  {
     "id": "grazing-underlay",
     "name": "Grazing underfoot",
     "description": "Inspect feeding without translation. Matches the five-tick acceptance snapshot.",

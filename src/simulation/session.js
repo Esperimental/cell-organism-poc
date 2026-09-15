@@ -1,6 +1,6 @@
 import { clone, computeMetrics, connectedComponents, forageScore, forageSupportRatio, nearestFoodVector, normalizeState, step as stepBiology } from './sim.js';
 import { nextRandom, normalizeSeed, randomInt } from './rng.js';
-import { foodContactCount } from './morphology.js';
+import { foodContactCount, findFeedingReshape, applyReshape } from './morphology.js';
 
 const key = (x, y) => `${x},${y}`;
 const SEARCH_DIRS = [
@@ -392,6 +392,8 @@ function searchDirectionForTick(state, rules) {
 
 function classifyActivity(stateBefore, stateAfter, rules, events, searchDirection) {
   if (!stateAfter.cells.length) return { mode: 'DEAD', reason: 'no_cells' };
+  const reshape = events.find((event) => event.type === 'reshape');
+  if (reshape) return { mode: 'RESHAPING', reason: reshape.reason };
   if (events.some((event) => event.type === 'sacrifice')) return { mode: 'SURVIVAL', reason: 'sacrificing_cells_for_travel' };
   if (events.some((event) => event.type === 'food_consumed')) return { mode: 'FEEDING', reason: 'grazing_underfoot' };
   const moved = events.some((event) => event.type === 'movement');
@@ -425,9 +427,17 @@ export class GameSession {
     const before = includeActivity ? clone(this.state) : null;
     const searchDirection = searchDirectionForTick(this.state, this.rules);
     const migrationActive = Boolean(this.state.migration?.target);
+    // Opt-in while the body response is being evaluated in controlled scenes.
+    // A reshaping opportunity pauses translation until the next body cadence.
+    const reshape = this.rules.reshape?.responsive && !migrationActive
+      ? findFeedingReshape(this.state, this.rules, this.world) : null;
+    if (reshape && (this.state.tick + 1) % Math.max(1, this.rules.reshape.moveEveryTicks ?? 3) === 0) {
+      applyReshape(this.state, reshape);
+      worldEvents.push({ tick: this.state.tick + 1, type: 'reshape', ...reshape });
+    }
     const movementOptions = migrationActive
       ? (searchDirection ? { preferFallbackDirection: true } : { skipTranslation: true })
-      : {};
+      : (reshape ? { skipTranslation: true } : {});
     const result = stepBiology(
       this.state,
       this.rules,
@@ -438,7 +448,7 @@ export class GameSession {
     this.state = result.state;
     let activityEvent = null;
     if (includeActivity) {
-      this.state.activity = classifyActivity(before, this.state, this.rules, result.events, searchDirection);
+      this.state.activity = classifyActivity(before, this.state, this.rules, [...worldEvents, ...result.events], searchDirection);
       activityEvent = { tick: this.state.tick, type: 'activity', ...this.state.activity };
     }
     return {

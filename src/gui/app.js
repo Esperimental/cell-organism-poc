@@ -280,7 +280,7 @@ function render(time = 0) {
 
 function formatEvent(e) {
   if (e.type === 'activity') return `${e.mode}: ${e.reason.replaceAll('_', ' ')}`;
-  if (e.type === 'reshape') return `Cell ${e.cellId} reshaped (${e.foodContactsBefore} → ${e.foodContactsAfter} food contacts)`;
+  if (e.type === 'reshape') return `${(e.reason ?? 'reshape').replaceAll('_', ' ')}: cell ${e.cellId} (${e.foodContactsBefore} → ${e.foodContactsAfter} food contacts)`;
   if (e.type === 'movement') return `Moved ${e.dx}, ${e.dy}`;
   if (e.type === 'food_spawned') return `Food appeared at ${e.x}, ${e.y} (+${e.amount})`;
   if (e.type === 'food_consumed') return `Cell ${e.cellId} grazed ${e.amount.toFixed(2)}`;

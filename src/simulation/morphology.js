@@ -40,7 +40,12 @@ export function findFeedingReshape(state, rules, world) {
   const compactnessWeight = config.compactnessWeight ?? 1;
   const occupied = new Set(state.cells.map((cell) => key(cell.x, cell.y)));
   const beforeContacts = foodContactCount(state, rules);
-  if (beforeContacts === 0) return null;
+  const responsive = config.responsive === true;
+  if (!responsive && beforeContacts === 0) return null;
+  const reachRadius = config.reachRadius ?? 3;
+  const food = state.food.filter((entry) => entry.amount >= (rules.foodSenseMinBiomass ?? 0.000001));
+  const distanceToFood = (x, y) => food.reduce((distance, entry) =>
+    Math.min(distance, Math.abs(entry.x - x) + Math.abs(entry.y - y)), reachRadius + 1);
   const beforeExposed = computeMetrics(state).exposedEdges;
 
   let best = null;
@@ -62,10 +67,14 @@ export function findFeedingReshape(state, rules, world) {
 
       const afterContacts = foodContactCount(candidateState, rules);
       const contactGain = afterContacts - beforeContacts;
-      if (contactGain <= 0) continue;
+      if (contactGain < 0 || (!responsive && contactGain === 0)) continue;
       const afterExposed = computeMetrics(candidateState).exposedEdges;
       const exposedIncrease = afterExposed - beforeExposed;
-      const score = contactGain * foodWeight - exposedIncrease * compactnessWeight;
+      const approach = responsive ? distanceToFood(cell.x, cell.y) - distanceToFood(x, y) : 0;
+      // Preparatory surface moves may approach food before making contact.
+      // With no contact or approach, only settle an already-feeding body.
+      if (!contactGain && approach <= 0 && !(beforeContacts > 0 && approach === 0 && exposedIncrease < 0)) continue;
+      const score = contactGain * foodWeight + approach * (config.approachWeight ?? 3) - exposedIncrease * compactnessWeight;
       if (score <= 0) continue;
 
       const candidate = {
@@ -78,6 +87,7 @@ export function findFeedingReshape(state, rules, world) {
         exposedEdgesBefore: beforeExposed,
         exposedEdgesAfter: afterExposed,
         score,
+        reason: contactGain > 0 ? 'feeding_contact' : approach > 0 ? 'reaching' : 'settling',
       };
       if (!best || candidate.score > best.score || (candidate.score === best.score && candidate.cellId < best.cellId)) {
         best = candidate;

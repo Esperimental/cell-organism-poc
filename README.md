@@ -2,6 +2,27 @@
 
 ## Experiment bench
 
+### Body response experiment
+
+Select **Body language — two food patches**, start at tick zero, then Play
+at the preset's 2 ticks/second. The world fits the fixed camera. At ticks
+3–12, boundary cells reach and gather toward the first patch; the body then
+feeds and travels to the second patch. **Body language — original behaviour**
+uses the same map, seed and ecology with this response disabled.
+
+The opt-in rule `reshape.responsive: true` connects the previously unused
+reshape action to the session loop and permits short preparatory moves toward
+nearby food before contact. A move must preserve connectivity, not lose food
+contacts, improve the approach/contact/compactness score, and pay its energy
+cost. Only one boundary cell moves on the configured cadence; rigid translation
+waits during that opportunity. Committed migration takes priority.
+Quiet feeding is allowed; the body is not forced to keep moving.
+
+This is an experiment, not a global ecology change or soft-body locomotion.
+The normal random run retains its previous behaviour. Acceptance tests cover
+the scene, mirrored and rotated versions, feeding on both patches, survival,
+connectivity, and a no-food control.
+
 Open `src/gui/?experiment=compact-birth&tick=1` on the local server or
 GitHub Pages. The ordinary `src/gui/` entry still starts a random live world.
 Expand **Experiment bench**, select a preset, and choose **Load paused**.
