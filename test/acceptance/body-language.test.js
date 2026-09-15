@@ -32,7 +32,7 @@ for (const variant of ['original', 'mirrored', 'rotated']) {
       for (const event of result.events) {
         if (event.type === 'reshape') {
           firstReach ??= tick;
-          assert.equal(Math.abs(event.to.x - event.from.x) + Math.abs(event.to.y - event.from.y), 1);
+          assert.equal(Math.max(Math.abs(event.to.x - event.from.x), Math.abs(event.to.y - event.from.y)), 1);
           assert.ok(event.foodContactsAfter >= event.foodContactsBefore);
           assert.ok(!result.events.some(e => e.type === 'movement'), 'body adjustment gets its own tick');
           assert.equal(before.cells.filter(c => {

@@ -1,9 +1,9 @@
 import { computeMetrics } from '../simulation/sim.js';
 import { generateInitialFood } from '../simulation/initialWorld.js';
-import { GameSession } from '../simulation/session.js?v=body-response-2';
+import { GameSession } from '../simulation/session.js?v=body-settling-1';
 import { clampZoom, computeCameraLayout } from './camera.js';
 import { accumulatedSteps, speedRateForIndex } from './speed.js';
-import { loadPreset } from '../experiments/presets.js?v=body-response-2';
+import { loadPreset } from '../experiments/presets.js?v=body-settling-1';
 import { seekToTick } from '../experiments/seek.js';
 
 const canvas = document.getElementById('dish');
@@ -80,6 +80,13 @@ function freshRunSeed() {
 
 const initialState = session.initialState;
 let state = session.state;
+let motionFrom = new Map();
+let motionStarted = 0;
+let displayedPositions = new Map();
+
+function visualPosition(cell) {
+  return displayedPositions.get(cell.id) ?? cell;
+}
 let playing = !preset;
 let lastFrameAt = 0;
 let stepCarry = 0;
@@ -156,6 +163,9 @@ function drawGrid(l) {
 
 function drawFood(l, time) {
   for (const food of state.food) {
+    if (food.amount <= 0) continue;
+    ctx.save();
+    if (food.amount < (rules.foodSenseMinBiomass ?? 0)) ctx.globalAlpha = 0.3;
     const p = worldToCanvas(food.x, food.y, l);
     const pulse = 0.88 + Math.sin(time * 0.004 + food.x * 0.7 + food.y) * 0.09;
     const fullness = food.capacity ? Math.max(0.2, Math.min(1, food.amount / food.capacity)) : 1;
@@ -168,6 +178,7 @@ function drawFood(l, time) {
     ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.6, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#ffc465';
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 }
 
@@ -178,10 +189,12 @@ function drawConnections(l) {
   ctx.lineWidth = l.size * 0.38;
   ctx.lineCap = 'round';
   for (const cell of state.cells) {
-    const a = worldToCanvas(cell.x, cell.y, l);
+    const visual = visualPosition(cell);
+    const a = worldToCanvas(visual.x, visual.y, l);
     for (const [dx, dy] of [[1, 0], [0, 1]]) {
       if (!byPos.has(`${cell.x + dx},${cell.y + dy}`)) continue;
-      const b = worldToCanvas(cell.x + dx, cell.y + dy, l);
+      const neighbour = visualPosition(byPos.get(`${cell.x + dx},${cell.y + dy}`));
+      const b = worldToCanvas(neighbour.x, neighbour.y, l);
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
   }
@@ -212,7 +225,8 @@ function drawRemnants(l, time) {
 function drawCells(l, time) {
   const grazingCellIds = new Set(lastEvents.filter((event) => event.type === 'food_consumed').map((event) => event.cellId));
   for (const cell of state.cells) {
-    const p = worldToCanvas(cell.x, cell.y, l);
+    const visual = visualPosition(cell);
+    const p = worldToCanvas(visual.x, visual.y, l);
     const energy = Math.max(0, Math.min(1, cell.energy / rules.stem.maxEnergy));
     const grazing = grazingCellIds.has(cell.id);
     const breath = grazing ? 1 + 0.08 * (0.5 + 0.5 * Math.sin(time * 0.012 + cell.id)) : 1;
@@ -242,6 +256,14 @@ function drawCells(l, time) {
 }
 
 function render(time = 0) {
+  const duration = Math.min(280, 850 / speedRateForIndex(els.speed.value));
+  const progress = playing && rules.reshape?.responsive ? Math.max(0, Math.min(1, (time - motionStarted) / duration)) : 1;
+  const eased = progress * progress * (3 - 2 * progress);
+  displayedPositions = new Map(state.cells.map(cell => {
+    const from = motionFrom.get(cell.id) ?? cell;
+    return [cell.id, { x: from.x + (cell.x - from.x) * eased, y: from.y + (cell.y - from.y) * eased }];
+  }));
+  if (!seeking && preset) bench.experimentStatus.textContent = `${playing ? 'Playing' : 'Paused'} at tick ${state.tick}.`;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const bg = ctx.createRadialGradient(canvas.width * .5, canvas.height * .45, 30, canvas.width * .5, canvas.height * .5, canvas.width * .72);
   bg.addColorStop(0, '#10272a');
@@ -309,6 +331,8 @@ function recordStep(result) {
   if (remnants.length > 200) remnants = remnants.slice(-200);
 }
 function advance() {
+  motionFrom = new Map(state.cells.map(cell => [cell.id, { ...visualPosition(cell) }]));
+  motionStarted = performance.now();
   recordStep(session.step());
 }
 
@@ -320,6 +344,8 @@ function reset() {
   bench.experimentStatus.textContent = '';
   session.reset();
   state = session.state;
+  motionFrom = new Map();
+  displayedPositions = new Map();
   lastEvents = [];
   remnants = [];
   eventHistory = [];

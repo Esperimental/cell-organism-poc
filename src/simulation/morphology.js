@@ -1,4 +1,4 @@
-import { clone, computeMetrics, connectedComponents } from './sim.js';
+import { clone, computeMetrics, connectedComponents, forageScore } from './sim.js';
 
 const DIRS = [
   { dx: 1, dy: 0 },
@@ -31,7 +31,7 @@ function candidateIsConnected(state) {
   return state.cells.length <= 1 || connectedComponents(state).length === 1;
 }
 
-export function findFeedingReshape(state, rules, world) {
+export function findFeedingReshape(state, rules, world, allowPreparation = true) {
   const config = rules.reshape ?? {};
   if (!config.enabled || state.cells.length < 2) return null;
 
@@ -53,11 +53,17 @@ export function findFeedingReshape(state, rules, world) {
   for (const cell of cells) {
     if (cell.energy < energyCost || !isBoundaryCell(cell, occupied)) continue;
 
-    for (const { dx, dy } of DIRS) {
+    const moves = responsive ? [...DIRS, { dx: 1, dy: 1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }, { dx: -1, dy: -1 }] : DIRS;
+    for (const { dx, dy } of moves) {
       const x = cell.x + dx;
       const y = cell.y + dy;
       const destinationKey = key(x, y);
       if (!inBounds(x, y, world) || occupied.has(destinationKey)) continue;
+      // A diagonal fold pivots around an attached neighbour, never across free space.
+      if (dx && dy && !occupied.has(key(cell.x + dx, cell.y)) && !occupied.has(key(cell.x, cell.y + dy))) continue;
+      const recent = state.bodyResponse?.reshape;
+      if (responsive && recent?.cellId === cell.id && state.tick - recent.tick < 8
+        && x === recent.from.x && y === recent.from.y) continue;
 
       const candidateState = clone(state);
       const moved = candidateState.cells.find((candidate) => candidate.id === cell.id);
@@ -73,8 +79,15 @@ export function findFeedingReshape(state, rules, world) {
       const approach = responsive ? distanceToFood(cell.x, cell.y) - distanceToFood(x, y) : 0;
       // Preparatory surface moves may approach food before making contact.
       // With no contact or approach, only settle an already-feeding body.
-      if (!contactGain && approach <= 0 && !(beforeContacts > 0 && approach === 0 && exposedIncrease < 0)) continue;
-      const score = contactGain * foodWeight + approach * (config.approachWeight ?? 3) - exposedIncrease * compactnessWeight;
+      let preparationGain = 0;
+      if (!contactGain && approach <= 0 && !(beforeContacts > 0 && approach === 0 && exposedIncrease < 0)) {
+        if (!responsive || !allowPreparation || approach < 0 || beforeContacts === 0) continue;
+        const followup = findFeedingReshape(candidateState, rules, world, false);
+        if (!followup || followup.foodContactsAfter <= beforeContacts) continue;
+        preparationGain = (followup.foodContactsAfter - beforeContacts) * 2;
+      }
+      const feedingGain = forageScore(candidateState.cells, candidateState, rules) - forageScore(state.cells, state, rules);
+      const score = (responsive ? feedingGain : contactGain) * foodWeight + approach * (config.approachWeight ?? 3) - exposedIncrease * compactnessWeight + preparationGain;
       if (score <= 0) continue;
 
       const candidate = {
@@ -87,7 +100,7 @@ export function findFeedingReshape(state, rules, world) {
         exposedEdgesBefore: beforeExposed,
         exposedEdgesAfter: afterExposed,
         score,
-        reason: contactGain > 0 ? 'feeding_contact' : approach > 0 ? 'reaching' : 'settling',
+        reason: preparationGain > 0 ? 'preparing_fold' : contactGain > 0 ? 'feeding_contact' : approach > 0 ? 'reaching' : 'settling',
       };
       if (!best || candidate.score > best.score || (candidate.score === best.score && candidate.cellId < best.cellId)) {
         best = candidate;
@@ -104,5 +117,7 @@ export function applyReshape(state, reshape) {
   cell.x = reshape.to.x;
   cell.y = reshape.to.y;
   cell.energy -= reshape.energyCost;
+  state.bodyResponse ??= {};
+  state.bodyResponse.reshape = { cellId: cell.id, from: reshape.from, tick: state.tick + 1 };
   return true;
 }
