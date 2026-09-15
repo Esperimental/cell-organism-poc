@@ -1,0 +1,54 @@
+[
+  {
+    "id": "grazing-underlay",
+    "name": "Grazing underfoot",
+    "description": "Inspect feeding without translation. Matches the five-tick acceptance snapshot.",
+    "scenario": "scenarios/grazing-underlay.json",
+    "seed": 1,
+    "worldOverrides": { "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
+    "view": { "tick": 5, "speed": 0, "zoom": 4 }
+  },
+  {
+    "id": "feeding-reshape",
+    "name": "Feeding reshape",
+    "description": "An asymmetric five-cell body beside a fixed food patch. Inspect changes in food contact and shape.",
+    "scenario": "scenarios/feeding-reshape.json",
+    "seed": 1,
+    "worldOverrides": { "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
+    "view": { "tick": 5, "speed": 0, "zoom": 4 }
+  },
+  {
+    "id": "compact-birth",
+    "name": "Compact birth",
+    "description": "One-tick reproduction geometry. Search, maintenance and resource transfers are disabled to match the acceptance snapshot.",
+    "scenario": "scenarios/compact-birth.json",
+    "seed": 1,
+    "rulesOverrides": {
+      "search": { "enabled": false },
+      "maintenanceEnergy": 0,
+      "exposedEdgeEnergyCost": 0,
+      "stem": { "energyTransferRate": 0, "foodTransferRate": 0 }
+    },
+    "worldOverrides": { "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
+    "view": { "tick": 1, "speed": 0, "zoom": 4 }
+  },
+  {
+    "id": "staged-refuel",
+    "name": "Staged refuelling",
+    "description": "Travel between small refuelling patches, shedding cells under stress. Matches the 120-tick acceptance test.",
+    "scenario": "scenarios/staged-refuel.json",
+    "seed": 1,
+    "rulesOverrides": { "grazing": { "migrationTargetJitterFraction": 0 } },
+    "worldOverrides": { "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
+    "view": { "tick": 120, "speed": 2, "zoom": 1 }
+  },
+  {
+    "id": "baseline-ecology",
+    "name": "Baseline seeded ecology",
+    "description": "Generated food world, seed 42, with the normal regrowth, spreading and spawning rules. This uses the same initialization as longevity testing.",
+    "scenario": "scenarios/food-east.json",
+    "seed": 42,
+    "initialFood": "generated",
+    "view": { "tick": 300, "speed": 3, "zoom": 1 }
+  }
+]

@@ -6,10 +6,10 @@
   "scripts": {
     "sim": "node src/cli/runSimulation.js",
     "experiment": "node src/experiments/cli.js",
-    "test": "node --test test/unit test/integration test/acceptance",
-    "test:unit": "node --test test/unit",
-    "test:integration": "node --test test/integration",
-    "test:acceptance": "node --test test/acceptance",
-    "test:longevity": "node --test test/longevity"
+    "test": "node --test test/unit/*.test.js test/integration/*.test.js test/acceptance/*.test.js",
+    "test:unit": "node --test test/unit/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js",
+    "test:acceptance": "node --test test/acceptance/*.test.js",
+    "test:longevity": "node --test test/longevity/*.test.js"
   }
 }

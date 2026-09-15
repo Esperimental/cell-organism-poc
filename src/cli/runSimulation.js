@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { renderAscii } from '../simulation/sim.js';
 import { GameSession } from '../simulation/session.js';
+import { loadPreset } from '../experiments/presets.js';
 
 function parseArgs(argv) {
   const args = {};
@@ -19,26 +20,40 @@ async function readJson(file) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-for (const required of ['scenario', 'rules', 'world', 'ticks', 'output']) {
+for (const required of args.experiment ? ['ticks', 'output'] : ['scenario', 'rules', 'world', 'ticks', 'output']) {
   if (!(required in args)) throw new Error(`Missing --${required}`);
 }
 
 const ticks = Number(args.ticks);
 if (!Number.isInteger(ticks) || ticks < 0) throw new Error('--ticks must be a non-negative integer');
-const seed = args.seed === undefined ? 0 : Number(args.seed);
-if (!Number.isInteger(seed)) throw new Error('--seed must be an integer');
+let seed = args.seed === undefined ? undefined : Number(args.seed);
+if (seed !== undefined && !Number.isInteger(seed)) throw new Error('--seed must be an integer');
 
-const [scenario, rules, world] = await Promise.all([
-  readJson(args.scenario),
-  readJson(args.rules),
-  readJson(args.world),
-]);
-
-const session = new GameSession({ state: scenario, rules, world, seed });
+if (args.experiment && ['scenario', 'rules', 'world'].some((key) => key in args)) {
+  throw new Error('--experiment cannot be combined with --scenario, --rules or --world');
+}
+let session;
+if (args.experiment) {
+  const loaded = await loadPreset(args.experiment, readJson, { seed });
+  session = loaded.session;
+  seed = loaded.seed;
+} else {
+  const [scenario, rules, world] = await Promise.all([
+    readJson(args.scenario),
+    readJson(args.rules),
+    readJson(args.world),
+  ]);
+  seed ??= 0;
+  session = new GameSession({ state: scenario, rules, world, seed });
+}
 const result = session.run(ticks);
 
 await fs.mkdir(args.output, { recursive: true });
 await Promise.all([
+  fs.writeFile(path.join(args.output, 'experiment.json'), JSON.stringify({
+    experiment: args.experiment ?? null, seed, ticks,
+    rules: session.rules, world: session.world,
+  }, null, 2) + '\n'),
   fs.writeFile(path.join(args.output, 'initial-state.json'), JSON.stringify(result.initialState, null, 2) + '\n'),
   fs.writeFile(path.join(args.output, 'final-state.json'), JSON.stringify(result.finalState, null, 2) + '\n'),
   fs.writeFile(path.join(args.output, 'summary.json'), JSON.stringify({ seed, ...result.summary }, null, 2) + '\n'),

@@ -31,6 +31,24 @@
       </div>
     </section>
 
+    <details id="experimentTools" class="experiment-tools">
+      <summary>Experiment bench</summary>
+      <div class="controls">
+        <label>Experiment <select id="experimentSelect"></select></label>
+        <button id="loadExperiment">Load paused</button>
+        <a href="./">Normal random run</a>
+      </div>
+      <p id="experimentDescription">Choose a committed experiment to inspect.</p>
+      <div class="controls">
+        <button id="step10" class="secondary">Step 10</button>
+        <button id="step100" class="secondary">Step 100</button>
+        <label>Target tick <input id="targetTick" type="number" min="0" step="1" value="0" /></label>
+        <button id="goTick">Go to tick</button>
+        <button id="cancelSeek" class="secondary" disabled>Cancel</button>
+        <a id="replayLink" href="./">Replay current tick</a>
+      </div>
+      <p id="experimentStatus" role="status" aria-live="polite"></p>
+    </details>
     <section class="content">
       <div class="dish-card">
         <canvas id="dish" width="1100" height="720" aria-label="Cell simulation. Use the mouse wheel to zoom."></canvas>
@@ -52,7 +70,20 @@
 
         <div class="status-card">
           <div class="status-title">Last events</div>
+          <label>Events <select id="eventFilter">
+            <option value="interesting">Behaviour</option>
+            <option value="all">All</option>
+            <option value="movement">Movement</option>
+            <option value="reshape">Reshape</option>
+            <option value="reproduction">Birth</option>
+            <option value="sacrifice">Sacrifice</option>
+            <option value="death">Death</option>
+          </select></label>
           <div id="events" class="events">Waiting for simulation…</div>
+        </div>
+        <div id="cellInspector" class="status-card" hidden>
+          <label>Cell ID <input id="cellId" type="number" min="1" step="1" value="1" /></label>
+          <div id="cellDetails" class="events">Select a cell on the map or enter its ID.</div>
         </div>
 
         <div class="hint">Grazing cells breathe with a warmer glow. Zoom out to watch pasture growth and long-range movement; zoom in to inspect individual cells. Speed ranges from careful observation to rapid fast-forward.</div>

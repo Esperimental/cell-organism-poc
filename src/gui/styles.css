@@ -30,6 +30,17 @@ button {
 button.secondary { background: #18312d; color: #c9eee3; border: 1px solid #31564f; }
 button.compact { min-width: 38px; padding: 9px 11px; font-size: 16px; }
 button:hover { filter: brightness(1.08); }
+button:disabled { opacity: .45; cursor: default; }
+[hidden] { display: none !important; }
+a { color: #7ee2c1; font-size: 13px; }
+select, input[type="number"] { background: #112923; color: #e9fbf5; border: 1px solid #31564f; border-radius: 6px; padding: 7px; }
+input[type="number"] { width: 110px; }
+.experiment-tools { padding: 12px 16px; margin-bottom: 16px; border: 1px solid #31564f; border-radius: 12px; }
+.experiment-tools summary { cursor: pointer; color: #7ee2c1; margin-bottom: 10px; }
+.experiment-tools p { color: #9bc9bd; font-size: 13px; }
+#experimentStatus { min-height: 18px; margin-bottom: 0; }
+#events, #cellDetails { white-space: pre-line; overflow-wrap: anywhere; }
+#events { max-height: 200px; overflow-y: auto; margin-top: 8px; }
 label { display: flex; align-items: center; gap: 8px; color: #9bc9bd; font-size: 13px; }
 input[type="range"] { accent-color: #52d7a9; }
 .zoom-controls { display: flex; align-items: center; gap: 6px; padding-left: 4px; }

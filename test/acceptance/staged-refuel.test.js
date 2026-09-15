@@ -1,16 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import { GameSession } from '../../src/simulation/session.js';
 import { computeMetrics } from '../../src/simulation/sim.js';
-import { rules, mergeWorld } from '../helpers/fixtures.js';
+import { experiment } from '../helpers/fixtures.js';
 
-test('large organism can survive by chaining several individually insufficient refuel clusters', () => {
-  const state = JSON.parse(fs.readFileSync('scenarios/staged-refuel.json', 'utf8'));
-  const localRules = structuredClone(rules);
-  localRules.grazing.migrationTargetJitterFraction = 0;
-  const world = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
-  const session = new GameSession({ state, rules: localRules, world, seed: 1 });
+test('large organism can survive by chaining several individually insufficient refuel clusters', async () => {
+  const { session } = await experiment('staged-refuel');
 
   const refuelBands = new Set();
   let migrationTicks = 0;

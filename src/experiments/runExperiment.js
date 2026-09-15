@@ -26,9 +26,9 @@ export async function loadJson(path) {
   return JSON.parse(await fs.readFile(path, 'utf8'));
 }
 
-export function runExperiment({ scenario, rules, world, ticks, seeds }) {
-  const runs = seeds.map((seed) => {
-    const result = new GameSession({ state: scenario, rules, world, seed }).run(ticks);
+export function runExperiment({ scenario, rules, world, ticks, seeds, createSession }) {
+  const runs = seeds.map((seed, index) => {
+    const result = (createSession ? createSession(seed, index) : new GameSession({ state: scenario, rules, world, seed })).run(ticks);
     const peakCells = maxMetric(result.metricsByTick, 'cellCount');
     const tickOfPeakCells = result.metricsByTick.find((metric) => metric.cellCount === peakCells)?.tick ?? 0;
     return {

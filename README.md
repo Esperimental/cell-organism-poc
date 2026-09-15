@@ -1,5 +1,54 @@
 # Cell Organism POC
 
+## Experiment bench
+
+Open `src/gui/?experiment=compact-birth&tick=1` on the local server or
+GitHub Pages. The ordinary `src/gui/` entry still starts a random live world.
+Expand **Experiment bench**, select a preset, and choose **Load paused**.
+Presets start at tick zero; their suggested inspection tick is filled into
+**Target tick**. Use **Go to tick**, **Step**, **Step 10**, or **Step 100**.
+Seeking backwards resets and replays deterministically. Long jumps yield in
+batches and can be cancelled; no unbounded event history is retained.
+
+**Replay current tick** links to the loaded preset, seed and current tick.
+Links reproduce results for the same code/configuration revision; retain the
+Git commit when reporting a bug. Reset preserves the initial world and pauses
+experiment playback. Changing the dropdown only previews the next description;
+**Load paused** activates it.
+
+The event filter keeps the latest 300 behaviour events separately from the
+latest 300 events of all types, displaying the latest 12 matching entries.
+Click a cell or enter its ID to read its position, energy and stored food.
+
+The same presets work headlessly (run commands from the repository root):
+
+```bash
+npm run sim -- --experiment compact-birth --ticks 1 --output runs/compact-birth
+npm run experiment -- --experiment staged-refuel --ticks 120 --seeds 1
+npm run experiment -- --experiment baseline-ecology --ticks 300 --seeds 1:10
+npm test
+```
+
+The simulation CLI exports states, maps, events, metrics, summary, and resolved
+rules/world settings in `experiment.json`. `--ticks` means additional steps in
+the CLI; browser **Target tick** is an absolute tick. Existing explicit
+`--scenario`, `--rules`, `--world` CLI usage is still supported.
+
+To add an experiment, commit a scenario JSON and an entry in
+`experiments/catalog.json`. Each entry has a unique ID, name, description,
+scenario path and seed. Optional fields: `rules`, `world`, recursively merged
+`rulesOverrides`/`worldOverrides`, and `view: { tick, speed, zoom }`.
+`view.speed` is the existing slider index (0–8).
+Food is preserved by default; `initialFood: "generated"` explicitly replaces it
+with the seeded food generator. Set per-food `growthRate: 0` when fixed food
+must not regrow; disabling spawning/spreading alone does not disable regrowth.
+
+Browser and CLI use the shared `loadPreset` initializer. The compact-birth,
+grazing-underlay and staged-refuel acceptance tests load their catalogue
+entries directly. Replay tests compare every preset with a headless run,
+including rewind and saved-state continuation. No simulation rules are changed
+by the bench itself.
+
 ## Goal
 Build a deterministic, headless artificial-life simulation where a small cluster of simple stem cells behaves like one hungry organism through local rules rather than scripted organism-level AI.
 

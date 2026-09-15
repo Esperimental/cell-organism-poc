@@ -3,6 +3,8 @@ import { generateInitialFood } from '../simulation/initialWorld.js';
 import { GameSession } from '../simulation/session.js';
 import { clampZoom, computeCameraLayout } from './camera.js';
 import { accumulatedSteps, speedRateForIndex } from './speed.js';
+import { loadPreset } from '../experiments/presets.js';
+import { seekToTick } from '../experiments/seek.js';
 
 const canvas = document.getElementById('dish');
 const ctx = canvas.getContext('2d');
@@ -26,11 +28,44 @@ const els = {
   events: document.getElementById('events'),
 };
 
-const [scenario, rules, world] = await Promise.all([
-  fetch('../../scenarios/food-east.json').then((r) => r.json()),
-  fetch('../../configs/baseline.json').then((r) => r.json()),
-  fetch('../../configs/world.json').then((r) => r.json()),
-]);
+const bench = Object.fromEntries([
+  'experimentTools', 'experimentSelect', 'loadExperiment', 'experimentDescription',
+  'step10', 'step100', 'targetTick', 'goTick', 'cancelSeek', 'replayLink',
+  'experimentStatus', 'eventFilter', 'cellInspector', 'cellId', 'cellDetails',
+].map((id) => [id, document.getElementById(id)]));
+const rootUrl = new URL('../../', import.meta.url);
+async function readJson(path) {
+  const response = await fetch(new URL(path, rootUrl));
+  if (!response.ok) throw new Error(`Cannot load ${path}: HTTP ${response.status}`);
+  return response.json();
+}
+const params = new URLSearchParams(location.search);
+const experimentId = params.get('experiment');
+const catalog = await readJson('experiments/catalog.json');
+for (const preset of catalog) bench.experimentSelect.add(new Option(preset.name, preset.id));
+let loaded;
+try {
+  if (experimentId) {
+    loaded = await loadPreset(experimentId, readJson, {
+      seed: params.has('seed') ? Number(params.get('seed')) : undefined,
+    });
+  } else {
+    const [scenario, rules, world] = await Promise.all([
+      readJson('scenarios/food-east.json'), readJson('configs/baseline.json'), readJson('configs/world.json'),
+    ]);
+    const seed = freshRunSeed();
+    loaded = { seed, session: new GameSession({ state: generateInitialFood(scenario, world, seed), rules, world, seed }) };
+  }
+} catch (error) {
+  bench.experimentTools.open = true;
+  bench.experimentStatus.textContent = error.message;
+  bench.loadExperiment.onclick = () => {
+    location.href = `?experiment=${encodeURIComponent(bench.experimentSelect.value)}`;
+  };
+  throw error;
+}
+const { session, seed: runSeed, preset } = loaded;
+const { rules, world } = session;
 
 function freshRunSeed() {
   if (globalThis.crypto?.getRandomValues) {
@@ -41,17 +76,36 @@ function freshRunSeed() {
   return Date.now() >>> 0;
 }
 
-const runSeed = freshRunSeed();
-const randomizedScenario = generateInitialFood(scenario, world, runSeed);
-const session = new GameSession({ state: randomizedScenario, rules, world, seed: runSeed });
 const initialState = session.initialState;
 let state = session.state;
-let playing = true;
+let playing = !preset;
 let lastFrameAt = 0;
 let stepCarry = 0;
 let lastEvents = [];
 let remnants = [];
 const camera = { zoom: 1, minZoom: 1, maxZoom: 8 };
+let seeking = false;
+let cancelRequested = false;
+let eventHistory = [];
+const interestingTypes = new Set(['movement', 'reshape', 'reproduction', 'sacrifice', 'death']);
+let behaviourHistory = [];
+bench.cellInspector.hidden = !preset;
+bench.eventFilter.value = preset ? 'interesting' : 'all';
+if (preset) {
+  bench.experimentTools.open = true;
+  bench.experimentSelect.value = preset.id;
+  bench.experimentDescription.textContent = preset.description;
+  bench.targetTick.value = String(preset.view?.tick ?? 0);
+  els.speed.value = String(preset.view?.speed ?? 3);
+  camera.zoom = clampZoom(preset.view?.zoom ?? 1);
+  els.zoomLabel.textContent = `${Math.round(camera.zoom * 100)}%`;
+}
+bench.loadExperiment.addEventListener('click', () => {
+  location.href = `?experiment=${encodeURIComponent(bench.experimentSelect.value)}`;
+});
+bench.experimentSelect.addEventListener('change', () => {
+  bench.experimentDescription.textContent = catalog.find((entry) => entry.id === bench.experimentSelect.value)?.description ?? '';
+});
 
 function boundsForState() {
   return { minX: world.minX, maxX: world.maxX, minY: world.minY, maxY: world.maxY };
@@ -207,11 +261,21 @@ function render(time = 0) {
   els.energy.textContent = metrics.meanEnergy.toFixed(1);
   els.storedFood.textContent = metrics.totalStoredFood.toFixed(1);
   els.foodLeft.textContent = state.food.reduce((sum, f) => sum + f.amount, 0).toFixed(1);
-  els.connected.textContent = metrics.connectedComponents <= 1 ? 'Yes' : `No (${metrics.connectedComponents})`;
+  els.connected.textContent = !state.cells.length ? 'Extinct' : metrics.connectedComponents <= 1 ? 'Yes' : `No (${metrics.connectedComponents})`;
   els.connected.style.color = metrics.connectedComponents <= 1 ? '#71efbd' : '#ff8c78';
-  els.events.innerHTML = lastEvents.length
-    ? lastEvents.slice(-5).reverse().map((e) => formatEvent(e)).join('<br>')
-    : 'No events this tick.';
+  const filter = bench.eventFilter.value;
+  const source = filter === 'all' ? eventHistory : behaviourHistory;
+  const visibleEvents = source.filter((e) => filter === 'all' || filter === 'interesting' || e.type === filter);
+  els.events.textContent = visibleEvents.length
+    ? visibleEvents.slice(-12).reverse().map((e) => `t${e.tick}: ${formatEvent(e)}`).join('\n')
+    : 'No matching events in retained history.';
+  const cell = state.cells.find((candidate) => candidate.id === Number(bench.cellId.value));
+  bench.cellDetails.textContent = cell
+    ? `Cell ${cell.id} · (${cell.x}, ${cell.y})\nEnergy: ${cell.energy.toFixed(3)}\nStored food: ${cell.storedFood.toFixed(3)}`
+    : 'Cell is not present at this tick.';
+  if (preset) {
+    bench.replayLink.href = `?experiment=${encodeURIComponent(preset.id)}&seed=${runSeed}&tick=${state.tick}`;
+  }
 }
 
 function formatEvent(e) {
@@ -229,22 +293,35 @@ function formatEvent(e) {
   return e.type;
 }
 
-function advance() {
-  const result = session.step();
+function recordStep(result) {
   state = session.state;
   lastEvents = result.events;
+  eventHistory.push(...result.events);
+  eventHistory = eventHistory.slice(-300);
+  behaviourHistory.push(...result.events.filter((event) => interestingTypes.has(event.type)));
+  behaviourHistory = behaviourHistory.slice(-300);
   const createdAt = performance.now();
   for (const event of result.events.filter((candidate) => candidate.type === 'sacrifice')) {
     remnants.push({ x: event.x, y: event.y, createdAt });
   }
   if (remnants.length > 200) remnants = remnants.slice(-200);
 }
+function advance() {
+  recordStep(session.step());
+}
 
 function reset() {
+  if (preset) {
+    playing = false;
+    els.playPause.textContent = 'Play';
+  }
+  bench.experimentStatus.textContent = '';
   session.reset();
   state = session.state;
   lastEvents = [];
   remnants = [];
+  eventHistory = [];
+  behaviourHistory = [];
   stepCarry = 0;
   lastFrameAt = 0;
   render(performance.now());
@@ -283,6 +360,57 @@ canvas.addEventListener('wheel', (event) => {
   setZoom(camera.zoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15));
 }, { passive: false });
 
+canvas.addEventListener('click', (event) => {
+  if (!preset) return;
+  const rect = canvas.getBoundingClientRect();
+  const l = layout();
+  const x = Math.floor(((event.clientX - rect.left) * canvas.width / rect.width - l.ox) / l.size + l.minX);
+  const y = Math.floor(((event.clientY - rect.top) * canvas.height / rect.height - l.oy) / l.size + l.minY);
+  const cell = state.cells.find((candidate) => candidate.x === x && candidate.y === y);
+  if (cell) bench.cellId.value = String(cell.id);
+  render(performance.now());
+});
+bench.eventFilter.addEventListener('change', () => render(performance.now()));
+bench.cellId.addEventListener('input', () => render(performance.now()));
+bench.cancelSeek.addEventListener('click', () => { cancelRequested = true; });
+async function jump(target) {
+  if (seeking) return;
+  playing = false;
+  els.playPause.textContent = 'Play';
+  seeking = true;
+  cancelRequested = false;
+  stepCarry = 0;
+  lastFrameAt = 0;
+  const locked = [els.playPause, els.step, els.reset, bench.step10, bench.step100, bench.goTick, bench.loadExperiment];
+  locked.forEach((control) => { control.disabled = true; });
+  bench.cancelSeek.disabled = false;
+  try {
+    const completed = await seekToTick(session, target, {
+      cancelled: () => cancelRequested,
+      onStep: recordStep,
+      onReset: () => {
+        state = session.state;
+        lastEvents = []; eventHistory = []; behaviourHistory = []; remnants = [];
+      },
+      onProgress: (tick) => {
+        bench.experimentStatus.textContent = `Advancing: ${tick} / ${target}`;
+      },
+    });
+    bench.experimentStatus.textContent = `${completed ? 'Paused' : 'Cancelled'} at tick ${session.state.tick}.`;
+  } catch (error) {
+    bench.experimentStatus.textContent = error.message;
+  } finally {
+    state = session.state;
+    seeking = false;
+    locked.forEach((control) => { control.disabled = false; });
+    bench.cancelSeek.disabled = true;
+    render(performance.now());
+  }
+}
+bench.goTick.addEventListener('click', () => jump(Number(bench.targetTick.value)));
+bench.step10.addEventListener('click', () => jump(state.tick + 10));
+bench.step100.addEventListener('click', () => jump(state.tick + 100));
+
 function frame(time) {
   if (!lastFrameAt) lastFrameAt = time;
   const elapsedMs = Math.min(250, Math.max(0, time - lastFrameAt));
@@ -295,10 +423,16 @@ function frame(time) {
     for (let i = 0; i < accumulated.steps; i += 1) advance();
   }
 
-  render(time);
+  if (!seeking) render(time);
   requestAnimationFrame(frame);
 }
 
 updateSpeedLabel();
 reset();
+els.playPause.textContent = playing ? 'Pause' : 'Play';
+bench.replayLink.hidden = !preset;
+if (preset && params.has('tick')) {
+  bench.targetTick.value = params.get('tick');
+  await jump(Number(params.get('tick')));
+}
 requestAnimationFrame(frame);

@@ -1,4 +1,5 @@
 import { loadJson, runExperiment } from './runExperiment.js';
+import { loadPreset } from './presets.js';
 
 function parseArgs(argv) {
   const args = {};
@@ -31,19 +32,27 @@ const rulesPath = args.rules ?? 'configs/baseline.json';
 const worldPath = args.world ?? 'configs/world.json';
 const ticks = Number(args.ticks ?? 300);
 if (!Number.isInteger(ticks) || ticks < 0) throw new Error('--ticks must be a non-negative integer');
-const seeds = parseSeeds(args.seeds ?? '1:10');
+if (args.experiment && ['scenario', 'rules', 'world'].some((key) => key in args)) {
+  throw new Error('--experiment cannot be combined with --scenario, --rules or --world');
+}
+const selected = args.experiment ? await loadPreset(args.experiment, loadJson) : null;
+const seeds = parseSeeds(args.seeds ?? (selected ? String(selected.seed) : '1:10'));
 
-const [scenario, rules, world] = await Promise.all([
+const [scenario, rules, world] = selected ? [] : await Promise.all([
   loadJson(scenarioPath),
   loadJson(rulesPath),
   loadJson(worldPath),
 ]);
 
-const report = runExperiment({ scenario, rules, world, ticks, seeds });
+const sessions = selected ? await Promise.all(seeds.map(async (seed) => (await loadPreset(args.experiment, loadJson, { seed })).session)) : null;
+const report = runExperiment({ scenario, rules, world, ticks, seeds,
+  createSession: sessions ? (_seed, index) => sessions[index] : undefined,
+});
 const compact = {
-  scenario: scenarioPath,
-  rules: rulesPath,
-  world: worldPath,
+  experiment: args.experiment ?? null,
+  scenario: selected?.preset.scenario ?? scenarioPath,
+  rules: selected?.preset.rules ?? rulesPath,
+  world: selected?.preset.world ?? worldPath,
   ticks,
   seeds,
   aggregate: report.aggregate,
