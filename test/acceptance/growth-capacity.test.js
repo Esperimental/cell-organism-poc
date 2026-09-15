@@ -43,8 +43,8 @@ test('baseline ecology aggregate matches reviewed snapshot', () => {
   assert.deepEqual(compactAggregate(report.aggregate), expected);
 });
 
-test('growth target remains viable over 1500 ticks across baseline seeds', () => {
-  const report = runExperiment({ ...baselineExperiment, ticks: 1500 });
+test('growth target remains viable over 3000 ticks across baseline seeds', () => {
+  const report = runExperiment({ ...baselineExperiment, ticks: 3000 });
   const aggregate = report.aggregate;
 
   assert.ok(aggregate.survivalRate >= 0.9, `survival rate ${aggregate.survivalRate} < 0.9`);

@@ -107,7 +107,9 @@ test('organism shifts within pasture when nearby forage is substantially richer'
       { x: 1, y: 2, amount: 10, capacity: 10, growthRate: 0 },
     ],
   };
-  const session = new GameSession({ state: grazingScenario, rules, world: localWorld, seed: 2 });
+  const localRules = structuredClone(rules);
+  localRules.stem.foodIntakeRate = 1;
+  const session = new GameSession({ state: grazingScenario, rules: localRules, world: localWorld, seed: 2 });
   const result = session.step();
   const movement = result.events.find((event) => event.type === 'movement');
 
@@ -195,6 +197,7 @@ test('low-energy travelling organism sacrifices one rear cell and keeps moving t
     food: [{ x: 6, y: 0, amount: 10, capacity: 10, growthRate: 0 }],
   };
   const session = new GameSession({ state, rules: localRules, world: localWorld, seed: 1 });
+  session.step();
   const result = session.step();
   const sacrifice = result.events.find((event) => event.type === 'sacrifice');
   const movement = result.events.find((event) => event.type === 'movement');
@@ -213,6 +216,7 @@ test('under-supported grazing footprint moves toward richer sensed food even bef
   localRules.reproduction.energyThreshold = 101;
   localRules.survival.sacrifice.enabled = false;
   localRules.grazing.minSupportRatio = 1.1;
+  localRules.stem.foodIntakeRate = 1;
   const localWorld = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
   const state = {
     tick: 0,
@@ -240,6 +244,7 @@ test('under-supported grazing uses escape heading when sensed food vector cancel
   localRules.reproduction.energyThreshold = 101;
   localRules.survival.sacrifice.enabled = false;
   localRules.grazing.minSupportRatio = 1.1;
+  localRules.stem.foodIntakeRate = 1;
   const localWorld = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
   const state = {
     tick: 1,
@@ -262,4 +267,48 @@ test('under-supported grazing uses escape heading when sensed food vector cancel
   assert.ok(movement);
   assert.equal(movement.dx, 1);
   assert.equal(movement.dy, 0);
+});
+
+test('organism can commit to distant pasture after current footprint is fully depleted', () => {
+  const state = JSON.parse(fs.readFileSync('scenarios/staged-refuel.json', 'utf8'));
+  state.food[0].amount = 0;
+  const localRules = structuredClone(rules);
+  localRules.grazing.migrationTargetJitterFraction = 0;
+  const localWorld = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
+  const session = new GameSession({ state, rules: localRules, world: localWorld, seed: 1 });
+
+  session.step();
+
+  assert.ok(session.state.migration?.target, 'expected committed migration despite zero forage under the organism');
+  assert.ok(session.state.migration.target.x >= 10, `expected distant refuel target, got ${JSON.stringify(session.state.migration.target)}`);
+});
+
+test('declining mean energy forces migration even when current pasture looks theoretically supportive', () => {
+  const localRules = structuredClone(rules);
+  localRules.grazing.migrationTargetJitterFraction = 0;
+  localRules.grazing.energyDeclineTicksBeforeMigration = 4;
+  localRules.grazing.energyDeclineMeanEnergyFraction = 0.6;
+  localRules.reproduction.energyThreshold = 101;
+  localRules.survival.sacrifice.enabled = false;
+  const localWorld = mergeWorld({ foodSpawn: { enabled: false }, foodSpread: { enabled: false } });
+  const state = {
+    tick: 1,
+    energyTrend: { lastMeanEnergy: 50, decliningTicks: 3 },
+    cells: [
+      { id: 1, x: 0, y: 0, type: 'stem', energy: 40, storedFood: 0 },
+      { id: 2, x: 1, y: 0, type: 'stem', energy: 40, storedFood: 0 },
+      { id: 3, x: 2, y: 0, type: 'stem', energy: 40, storedFood: 0 }
+    ],
+    food: [
+      { x: 1, y: 0, amount: 10, capacity: 10, growthRate: 0 },
+      { x: 12, y: 0, amount: 10, capacity: 10, growthRate: 0 },
+      { x: 12, y: 1, amount: 10, capacity: 10, growthRate: 0 }
+    ]
+  };
+  const session = new GameSession({ state, rules: localRules, world: localWorld, seed: 1 });
+
+  session.step();
+
+  assert.ok(session.state.migration?.target, 'expected observed energy decline to override theoretical pasture support');
+  assert.ok(session.state.migration.target.x >= 10, `expected escape target away from failing pasture, got ${JSON.stringify(session.state.migration.target)}`);
 });

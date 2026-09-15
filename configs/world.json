@@ -3,9 +3,27 @@
   "maxX": 50,
   "minY": -35,
   "maxY": 35,
+  "initialFood": {
+    "clusterCount": 7,
+    "minClusterRoots": 3,
+    "maxClusterRoots": 8,
+    "clusterRadius": 3,
+    "minAmount": 8,
+    "maxAmount": 18,
+    "avoidCellRadius": 5,
+    "starterMinDistance": 6,
+    "starterMaxDistance": 8,
+    "margin": 3
+  },
   "foodPatches": {
     "defaultCapacity": 24,
-    "defaultGrowthRate": 0.15
+    "defaultGrowthRate": 0.27,
+    "recovery": {
+      "enabled": true,
+      "dormantGrowthFraction": 0.003,
+      "recoveryExponent": 2,
+      "fullGrowthAtFraction": 0.25
+    }
   },
   "foodSpread": {
     "enabled": true,
@@ -13,8 +31,8 @@
     "minBiomassToSpread": 6,
     "seedAmount": 1,
     "newRootCapacity": 18,
-    "newRootGrowthRate": 0.1125,
-    "maxRoots": 140
+    "newRootGrowthRate": 0.2025,
+    "maxRootFraction": 0.025
   },
   "foodSpawn": {
     "enabled": true,

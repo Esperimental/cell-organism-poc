@@ -166,3 +166,66 @@ test('travel sacrifice recovers 80 percent of sacrificed energy and loses 20 per
   assert.equal(totalEnergy, 28);
   assert.equal(connectedComponents(result.state).length, 1);
 });
+
+test('stressed organism switches to emergency food intake rate', async () => {
+  const { effectiveFoodIntakeRate } = await import('../../src/simulation/sim.js');
+  const localRules = structuredClone(rules);
+  localRules.stem.foodIntakeRate = 1;
+  localRules.stem.emergencyFoodIntakeRate = 3;
+  localRules.stem.emergencyIntakeMeanEnergyFraction = 0.55;
+  const healthy = { cells: [{ energy: 80 }, { energy: 70 }] };
+  const stressed = { cells: [{ energy: 40 }, { energy: 50 }] };
+  assert.equal(effectiveFoodIntakeRate(healthy, localRules), 1);
+  assert.equal(effectiveFoodIntakeRate(stressed, localRules), 3);
+});
+
+test('computeMetrics handles large cell and food sets without argument-spread overflow', async () => {
+  const { computeMetrics } = await import('../../src/simulation/sim.js');
+  const cells = [];
+  const food = [];
+  let id = 1;
+  for (let y = 0; y < 20; y += 1) {
+    for (let x = 0; x < 20; x += 1) cells.push({ id: id++, x, y, energy: 50, storedFood: 0 });
+  }
+  for (let y = 0; y < 20; y += 1) {
+    for (let x = 30; x < 55; x += 1) food.push({ x, y, amount: 5, capacity: 10 });
+  }
+  const metrics = computeMetrics({ tick: 0, cells, food });
+  assert.equal(metrics.cellCount, 400);
+  assert.equal(metrics.nearestFoodDistance, 11);
+});
+
+test('large organisms sacrifice at a higher mean-energy threshold than small organisms', async () => {
+  const { sacrificeForTravel } = await import('../../src/simulation/sim.js');
+  const localRules = structuredClone(rules);
+  localRules.survival.sacrifice.meanEnergyThresholdFraction = 0.25;
+  localRules.survival.sacrifice.largeOrganismMinCells = 3;
+  localRules.survival.sacrifice.largeOrganismMeanEnergyThresholdFraction = 0.4;
+  localRules.survival.sacrifice.energyRecoveryFraction = 0.8;
+
+  const smallState = {
+    tick: 0,
+    cells: [
+      { id: 1, x: 0, y: 0, energy: 30, storedFood: 0 },
+      { id: 2, x: 1, y: 0, energy: 30, storedFood: 0 },
+    ],
+    food: [],
+  };
+  const largeState = {
+    tick: 0,
+    cells: [
+      { id: 1, x: 0, y: 0, energy: 30, storedFood: 0 },
+      { id: 2, x: 1, y: 0, energy: 30, storedFood: 0 },
+      { id: 3, x: 2, y: 0, energy: 30, storedFood: 0 },
+    ],
+    food: [],
+  };
+
+  const smallEvent = sacrificeForTravel(smallState, localRules, smallState.cells, { dx: 1, dy: 0 }, []);
+  const largeEvents = [];
+  const largeEvent = sacrificeForTravel(largeState, localRules, largeState.cells, { dx: 1, dy: 0 }, largeEvents);
+
+  assert.equal(smallEvent, null);
+  assert.ok(largeEvent);
+  assert.equal(largeState.cells.length, 2);
+});

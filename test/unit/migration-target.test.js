@@ -50,3 +50,43 @@ test('migration target jitter is deterministic for the same RNG state', () => {
   assert.deepEqual(a, b);
   assert.equal(stateA.rngState, stateB.rngState);
 });
+
+test('migration target can use a useful cluster even when no individual food tile is above the per-tile richness threshold', () => {
+  const state = JSON.parse(fs.readFileSync('scenarios/staged-refuel.json', 'utf8'));
+  state.food = state.food.filter((food) => food.x >= 10);
+  const localRules = structuredClone(rules);
+  localRules.grazing.migrationTargetJitterFraction = 0;
+
+  const target = chooseMigrationTarget(state, localRules);
+
+  assert.ok(target, 'expected a modest multi-tile cluster to be considered a valid migration target');
+  assert.ok(target.x >= 10, `expected a staged refuel cluster, got ${target.x},${target.y}`);
+  assert.ok(target.localBiomass >= 15, `expected aggregate pasture biomass >= 15, got ${target.localBiomass}`);
+});
+
+test('stressed organism prioritizes nearest viable refuel stop over richer distant pasture', () => {
+  const state = {
+    tick: 100,
+    rngState: 42,
+    cells: [
+      { id: 1, x: 0, y: 0, energy: 20, storedFood: 0 },
+      { id: 2, x: 1, y: 0, energy: 20, storedFood: 0 },
+      { id: 3, x: 0, y: 1, energy: 20, storedFood: 0 },
+    ],
+    food: [
+      { x: 3, y: 0, amount: 5, capacity: 10 },
+      { x: 3, y: 1, amount: 5, capacity: 10 },
+      { x: 30, y: 20, amount: 24, capacity: 24 },
+      { x: 31, y: 20, amount: 24, capacity: 24 },
+      { x: 30, y: 21, amount: 24, capacity: 24 },
+    ],
+  };
+  const localRules = structuredClone(rules);
+  localRules.grazing.migrationTargetJitterFraction = 0;
+  const target = chooseMigrationTarget(state, localRules);
+
+  assert.ok(target);
+  assert.equal(target.emergency, true);
+  assert.ok(target.x <= 3, `expected nearby emergency refuel target, got ${target.x},${target.y}`);
+  assert.ok(target.distance <= 3, `expected short emergency journey, got distance ${target.distance}`);
+});

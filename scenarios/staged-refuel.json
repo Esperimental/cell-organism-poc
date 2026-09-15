@@ -1,0 +1,29 @@
+{
+  "tick": 0,
+  "cells": [
+    { "id": 1, "x": 0, "y": 0, "type": "stem", "energy": 32, "storedFood": 0 },
+    { "id": 2, "x": 1, "y": 0, "type": "stem", "energy": 32, "storedFood": 0 },
+    { "id": 3, "x": 2, "y": 0, "type": "stem", "energy": 32, "storedFood": 0 },
+    { "id": 4, "x": 0, "y": 1, "type": "stem", "energy": 32, "storedFood": 0 },
+    { "id": 5, "x": 1, "y": 1, "type": "stem", "energy": 32, "storedFood": 0 },
+    { "id": 6, "x": 2, "y": 1, "type": "stem", "energy": 32, "storedFood": 0 },
+    { "id": 7, "x": 0, "y": 2, "type": "stem", "energy": 32, "storedFood": 0 },
+    { "id": 8, "x": 1, "y": 2, "type": "stem", "energy": 32, "storedFood": 0 },
+    { "id": 9, "x": 2, "y": 2, "type": "stem", "energy": 32, "storedFood": 0 }
+  ],
+  "food": [
+    { "x": 1, "y": 1, "amount": 1, "capacity": 20, "growthRate": 0 },
+
+    { "x": 10, "y": 0, "amount": 5, "capacity": 10, "growthRate": 0 },
+    { "x": 10, "y": 1, "amount": 5, "capacity": 10, "growthRate": 0 },
+    { "x": 10, "y": 2, "amount": 5, "capacity": 10, "growthRate": 0 },
+
+    { "x": 20, "y": 0, "amount": 5, "capacity": 10, "growthRate": 0 },
+    { "x": 20, "y": 1, "amount": 5, "capacity": 10, "growthRate": 0 },
+    { "x": 20, "y": 2, "amount": 5, "capacity": 10, "growthRate": 0 },
+
+    { "x": 30, "y": 0, "amount": 5, "capacity": 10, "growthRate": 0 },
+    { "x": 30, "y": 1, "amount": 5, "capacity": 10, "growthRate": 0 },
+    { "x": 30, "y": 2, "amount": 5, "capacity": 10, "growthRate": 0 }
+  ]
+}

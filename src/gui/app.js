@@ -1,4 +1,5 @@
 import { computeMetrics } from '../simulation/sim.js';
+import { generateInitialFood } from '../simulation/initialWorld.js';
 import { GameSession } from '../simulation/session.js';
 import { clampZoom, computeCameraLayout } from './camera.js';
 import { accumulatedSteps, speedRateForIndex } from './speed.js';
@@ -16,6 +17,7 @@ const els = {
   zoomFit: document.getElementById('zoomFit'),
   zoomLabel: document.getElementById('zoomLabel'),
   tick: document.getElementById('tick'),
+  seed: document.getElementById('seed'),
   cells: document.getElementById('cells'),
   energy: document.getElementById('energy'),
   storedFood: document.getElementById('storedFood'),
@@ -30,7 +32,18 @@ const [scenario, rules, world] = await Promise.all([
   fetch('../../configs/world.json').then((r) => r.json()),
 ]);
 
-const session = new GameSession({ state: scenario, rules, world, seed: 42 });
+function freshRunSeed() {
+  if (globalThis.crypto?.getRandomValues) {
+    const value = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(value);
+    return value[0];
+  }
+  return Date.now() >>> 0;
+}
+
+const runSeed = freshRunSeed();
+const randomizedScenario = generateInitialFood(scenario, world, runSeed);
+const session = new GameSession({ state: randomizedScenario, rules, world, seed: runSeed });
 const initialState = session.initialState;
 let state = session.state;
 let playing = true;
@@ -189,6 +202,7 @@ function render(time = 0) {
 
   const metrics = computeMetrics(state, initialState);
   els.tick.textContent = String(state.tick);
+  els.seed.textContent = String(runSeed);
   els.cells.textContent = String(state.cells.length);
   els.energy.textContent = metrics.meanEnergy.toFixed(1);
   els.storedFood.textContent = metrics.totalStoredFood.toFixed(1);

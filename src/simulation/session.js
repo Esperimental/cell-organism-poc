@@ -23,20 +23,43 @@ function normalizeFoodPatches(state, world) {
   }
 }
 
-function growFood(state, events) {
+export function foodGrowthForTick(food, world) {
+  if (!(food.growthRate > 0) || !(food.capacity > food.amount)) return 0;
+  const recovery = world.foodPatches?.recovery ?? {};
+  if (recovery.enabled === false) return Math.min(food.growthRate, food.capacity - food.amount);
+
+  const floorFraction = Math.max(0, Math.min(1, recovery.dormantGrowthFraction ?? 0.001));
+  const exponent = Math.max(0.1, recovery.recoveryExponent ?? 2);
+  const fullGrowthAtFraction = Math.max(0.001, Math.min(1, recovery.fullGrowthAtFraction ?? 0.25));
+  const fullness = Math.max(0, Math.min(1, food.amount / Math.max(food.capacity, 1e-9)));
+  const recoveryProgress = Math.max(0, Math.min(1, fullness / fullGrowthAtFraction));
+  const multiplier = floorFraction + (1 - floorFraction) * (recoveryProgress ** exponent);
+  return Math.min(food.growthRate * multiplier, food.capacity - food.amount);
+}
+
+function growFood(state, world, events) {
   for (const food of state.food) {
-    if (!(food.growthRate > 0) || !(food.capacity > food.amount)) continue;
-    const before = food.amount;
-    food.amount = Math.min(food.capacity, food.amount + food.growthRate);
-    const amount = food.amount - before;
-    if (amount > 0) events.push({ tick: state.tick + 1, type: 'food_grew', x: food.x, y: food.y, amount });
+    const amount = foodGrowthForTick(food, world);
+    if (!(amount > 0)) continue;
+    food.amount += amount;
+    events.push({ tick: state.tick + 1, type: 'food_grew', x: food.x, y: food.y, amount });
   }
+}
+
+export function foodRootLimit(world) {
+  const spread = world.foodSpread ?? {};
+  if (Number.isFinite(spread.maxRoots)) return spread.maxRoots;
+  const fraction = Math.max(0, spread.maxRootFraction ?? 0.08);
+  const width = Math.max(0, world.maxX - world.minX + 1);
+  const height = Math.max(0, world.maxY - world.minY + 1);
+  return Math.floor(width * height * fraction);
 }
 
 function spreadFood(state, world, events) {
   const spread = world.foodSpread ?? {};
   if (!spread.enabled) return;
-  if (state.food.length >= (spread.maxRoots ?? Infinity)) return;
+  const rootLimit = foodRootLimit(world);
+  if (state.food.length >= rootLimit) return;
 
   const roots = new Map(state.food.map((food) => [key(food.x, food.y), food]));
   const candidates = [...state.food]
@@ -44,7 +67,7 @@ function spreadFood(state, world, events) {
     .sort((a, b) => (a.y - b.y) || (a.x - b.x));
 
   for (const source of candidates) {
-    if (state.food.length >= (spread.maxRoots ?? Infinity)) break;
+    if (state.food.length >= rootLimit) break;
     const roll = nextRandom(state.rngState);
     state.rngState = roll.state;
     if (roll.value >= (spread.chancePerRootPerTick ?? 0)) continue;
@@ -133,6 +156,34 @@ function chooseRandomDirection(state) {
   return SEARCH_DIRS[roll.value];
 }
 
+function updateEnergyTrend(state, rules) {
+  if (!state.cells.length) {
+    state.energyTrend = { lastMeanEnergy: 0, decliningTicks: 0 };
+    return;
+  }
+  const meanEnergy = state.cells.reduce((sum, cell) => sum + cell.energy, 0) / state.cells.length;
+  const tolerance = rules.grazing?.energyTrendTolerance ?? 0.05;
+  const previous = state.energyTrend?.lastMeanEnergy;
+  let decliningTicks = state.energyTrend?.decliningTicks ?? 0;
+  if (previous === undefined) {
+    decliningTicks = 0;
+  } else if (meanEnergy < previous - tolerance) {
+    decliningTicks += 1;
+  } else if (meanEnergy > previous + tolerance) {
+    decliningTicks = 0;
+  }
+  state.energyTrend = { lastMeanEnergy: meanEnergy, decliningTicks };
+}
+
+function energyTrendDemandsMigration(state, rules) {
+  if (!state.cells.length) return false;
+  const grazing = rules.grazing ?? {};
+  const minimumDeclineTicks = grazing.energyDeclineTicksBeforeMigration ?? 4;
+  const threshold = rules.stem.maxEnergy * (grazing.energyDeclineMeanEnergyFraction ?? 0.6);
+  const meanEnergy = state.cells.reduce((sum, cell) => sum + cell.energy, 0) / state.cells.length;
+  return (state.energyTrend?.decliningTicks ?? 0) >= minimumDeclineTicks && meanEnergy < threshold;
+}
+
 function hasUnderSupportedGrazing(state, rules) {
   const minimumSupport = rules.grazing?.minSupportRatio ?? 1.1;
   return connectedComponents(state).some((component) =>
@@ -194,7 +245,10 @@ export function chooseMigrationTarget(state, rules) {
   if (!component.length) return null;
   const center = componentCenter(component);
   const grazing = rules.grazing ?? {};
-  const minDistance = grazing.migrationMinDistance ?? 10;
+  const meanEnergy = component.reduce((sum, cell) => sum + cell.energy, 0) / component.length;
+  const emergencyThreshold = rules.stem.maxEnergy * (grazing.emergencyMigrationMeanEnergyFraction ?? rules.stem.emergencyIntakeMeanEnergyFraction ?? 0.45);
+  const emergency = meanEnergy < emergencyThreshold;
+  const minDistance = emergency ? 1 : (grazing.migrationMinDistance ?? 10);
   const senseRadius = grazing.migrationSenseRadius ?? 60;
   const minBiomass = grazing.migrationTargetMinBiomass ?? 8;
   const pastureRadius = grazing.migrationPastureRadius ?? 4;
@@ -202,10 +256,10 @@ export function chooseMigrationTarget(state, rules) {
   const usableBiomassPerCell = grazing.migrationUsableBiomassPerCell ?? 10;
   const jitterFraction = grazing.migrationTargetJitterFraction ?? 0;
 
-  const eligible = state.food.filter((food) => food.amount >= minBiomass);
+  const candidateTiles = state.food.filter((food) => food.amount >= (rules.foodSenseMinBiomass ?? 0));
   const candidates = [];
 
-  for (const food of eligible) {
+  for (const food of candidateTiles) {
     const distance = Math.abs(food.x - center.x) + Math.abs(food.y - center.y);
     if (distance < minDistance || distance > senseRadius) continue;
 
@@ -213,13 +267,16 @@ export function chooseMigrationTarget(state, rules) {
       const localDistance = Math.abs(nearby.x - food.x) + Math.abs(nearby.y - food.y);
       return localDistance <= pastureRadius ? sum + nearby.amount : sum;
     }, 0);
+    if (localBiomass < minBiomass) continue;
     const usableBiomass = Math.min(localBiomass, component.length * usableBiomassPerCell);
-    const revisitFactor = recentPastureValueFactor(state, food, rules);
+    const revisitFactor = emergency ? 1 : recentPastureValueFactor(state, food, rules);
     const pastureEnergyValue = usableBiomass * rules.stem.digestionEfficiency * revisitFactor;
     const travelCost = distance * component.length * rules.movementEnergy;
-    let score = pastureEnergyValue - travelCostWeight * travelCost;
+    let score = emergency
+      ? (-distance * 1000 + localBiomass)
+      : (pastureEnergyValue - travelCostWeight * travelCost);
 
-    if (jitterFraction > 0) {
+    if (!emergency && jitterFraction > 0) {
       const roll = nextRandom(state.rngState ?? 0);
       state.rngState = roll.state;
       score *= 1 + (roll.value * 2 - 1) * jitterFraction;
@@ -236,6 +293,7 @@ export function chooseMigrationTarget(state, rules) {
       pastureEnergyValue,
       travelCost,
       score,
+      emergency,
     });
   }
 
@@ -282,8 +340,9 @@ function migrationDirectionForTick(state, rules) {
     }
   }
 
-  if (!state.migration?.target && currentForage > 0 && currentSupport < minimumSupport) {
-    rememberPasture(state, componentCenter(component), rules);
+  const energyDeclining = energyTrendDemandsMigration(state, rules);
+  if (!state.migration?.target && (currentForage <= 0 || currentSupport < minimumSupport || energyDeclining)) {
+    if (currentForage > 0) rememberPasture(state, componentCenter(component), rules);
     const target = chooseMigrationTarget(state, rules);
     if (target) {
       state.migration = {
@@ -357,12 +416,13 @@ export class GameSession {
     this.state = clone(this.initialState);
   }
 
-  step() {
+  step({ includeMetrics = true, includeActivity = true } = {}) {
     const worldEvents = [];
-    growFood(this.state, worldEvents);
+    updateEnergyTrend(this.state, this.rules);
+    growFood(this.state, this.world, worldEvents);
     spreadFood(this.state, this.world, worldEvents);
     maybeSpawnFood(this.state, this.world, worldEvents);
-    const before = clone(this.state);
+    const before = includeActivity ? clone(this.state) : null;
     const searchDirection = searchDirectionForTick(this.state, this.rules);
     const migrationActive = Boolean(this.state.migration?.target);
     const movementOptions = migrationActive
@@ -376,13 +436,16 @@ export class GameSession {
       movementOptions,
     );
     this.state = result.state;
-    this.state.activity = classifyActivity(before, this.state, this.rules, result.events, searchDirection);
-    const activityEvent = { tick: this.state.tick, type: 'activity', ...this.state.activity };
+    let activityEvent = null;
+    if (includeActivity) {
+      this.state.activity = classifyActivity(before, this.state, this.rules, result.events, searchDirection);
+      activityEvent = { tick: this.state.tick, type: 'activity', ...this.state.activity };
+    }
     return {
       state: this.state,
-      events: [...worldEvents, ...result.events, activityEvent],
+      events: activityEvent ? [...worldEvents, ...result.events, activityEvent] : [...worldEvents, ...result.events],
       diagnostics: result.diagnostics,
-      metrics: computeMetrics(this.state, this.initialState),
+      metrics: includeMetrics ? computeMetrics(this.state, this.initialState) : null,
     };
   }
 

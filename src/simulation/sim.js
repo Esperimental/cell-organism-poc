@@ -104,19 +104,28 @@ function canTranslate(component, state, dx, dy, world) {
   return true;
 }
 
-function grazingIntakeRate(food, rules) {
+export function effectiveFoodIntakeRate(state, rules) {
+  if (!state.cells.length) return rules.stem.foodIntakeRate;
+  const meanEnergy = state.cells.reduce((sum, cell) => sum + cell.energy, 0) / state.cells.length;
+  const threshold = rules.stem.maxEnergy * (rules.stem.emergencyIntakeMeanEnergyFraction ?? 0.55);
+  if (meanEnergy < threshold) return rules.stem.emergencyFoodIntakeRate ?? rules.stem.foodIntakeRate;
+  return rules.stem.foodIntakeRate;
+}
+
+function grazingIntakeRate(food, rules, intakeRate = rules.stem.foodIntakeRate) {
   if (!food || food.amount <= 0) return 0;
   const capacity = Math.max(food.capacity ?? food.amount, 1e-9);
   const fullness = Math.max(0, Math.min(1, food.amount / capacity));
   const minimumFraction = rules.stem.foodIntakeMinFraction ?? 0.15;
-  return rules.stem.foodIntakeRate * Math.max(minimumFraction, fullness);
+  return intakeRate * Math.max(minimumFraction, fullness);
 }
 
 export function forageScore(component, state, rules, dx = 0, dy = 0) {
   const fmap = foodMap(state);
+  const intakeRate = effectiveFoodIntakeRate(state, rules);
   return component.reduce((sum, cell) => {
     const food = fmap.get(key(cell.x + dx, cell.y + dy));
-    return sum + grazingIntakeRate(food, rules);
+    return sum + grazingIntakeRate(food, rules, intakeRate);
   }, 0);
 }
 
@@ -134,12 +143,13 @@ export function forageSupportRatio(component, state, rules) {
 
 function consumeFood(state, rules, events) {
   const fmap = foodMap(state);
+  const intakeRate = effectiveFoodIntakeRate(state, rules);
   for (const cell of [...state.cells].sort((a, b) => a.id - b.id)) {
     const capacity = Math.max(0, rules.stem.foodCapacity - cell.storedFood);
     if (capacity <= 0) continue;
     const food = fmap.get(key(cell.x, cell.y));
     if (!food || food.amount <= 0) continue;
-    const amount = Math.min(grazingIntakeRate(food, rules), capacity, food.amount);
+    const amount = Math.min(grazingIntakeRate(food, rules, intakeRate), capacity, food.amount);
     if (amount <= 0) continue;
     food.amount -= amount;
     cell.storedFood += amount;
@@ -307,7 +317,11 @@ export function sacrificeForTravel(state, rules, component, direction, events) {
   const config = rules.survival?.sacrifice;
   if (!config?.enabled || component.length <= (config.minCells ?? 2)) return null;
   const meanEnergy = component.reduce((sum, cell) => sum + cell.energy, 0) / component.length;
-  const threshold = rules.stem.maxEnergy * (config.meanEnergyThresholdFraction ?? 0.2);
+  const largeOrganismMinCells = config.largeOrganismMinCells ?? Infinity;
+  const thresholdFraction = component.length >= largeOrganismMinCells
+    ? (config.largeOrganismMeanEnergyThresholdFraction ?? config.meanEnergyThresholdFraction ?? 0.2)
+    : (config.meanEnergyThresholdFraction ?? 0.2);
+  const threshold = rules.stem.maxEnergy * thresholdFraction;
   if (meanEnergy >= threshold) return null;
 
   const selected = chooseSacrificeCell(component, state, direction);
@@ -360,7 +374,14 @@ export function computeMetrics(state, initialState = null) {
   let nearestFoodDistance = null;
   const edibleFood = state.food.filter((food) => food.amount > 1e-9);
   if (state.cells.length && edibleFood.length) {
-    nearestFoodDistance = Math.min(...state.cells.flatMap((c) => edibleFood.map((f) => Math.abs(c.x - f.x) + Math.abs(c.y - f.y))));
+    let minimumDistance = Infinity;
+    for (const cell of state.cells) {
+      for (const food of edibleFood) {
+        const distance = Math.abs(cell.x - food.x) + Math.abs(cell.y - food.y);
+        if (distance < minimumDistance) minimumDistance = distance;
+      }
+    }
+    nearestFoodDistance = Number.isFinite(minimumDistance) ? minimumDistance : null;
   }
   return {
     tick: state.tick,
@@ -491,10 +512,20 @@ export function renderAscii(state) {
     ...state.food.map((f) => ({ x: f.x, y: f.y })),
   ];
   if (!points.length) return '(empty)\n';
-  const minX = Math.min(...points.map((p) => p.x)) - 1;
-  const maxX = Math.max(...points.map((p) => p.x)) + 1;
-  const minY = Math.min(...points.map((p) => p.y)) - 1;
-  const maxY = Math.max(...points.map((p) => p.y)) + 1;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const point of points) {
+    if (point.x < minX) minX = point.x;
+    if (point.x > maxX) maxX = point.x;
+    if (point.y < minY) minY = point.y;
+    if (point.y > maxY) maxY = point.y;
+  }
+  minX -= 1;
+  maxX += 1;
+  minY -= 1;
+  maxY += 1;
   const cells = cellMap(state);
   const foods = foodMap(state);
   const rows = [];

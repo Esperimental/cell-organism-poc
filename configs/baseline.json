@@ -6,7 +6,7 @@
   "foodSenseMinBiomass": 2,
   "grazing": {
     "moveForageImprovement": 1.2,
-    "minSupportRatio": 1.5,
+    "minSupportRatio": 1.9,
     "migrationMinDistance": 10,
     "migrationSenseRadius": 60,
     "migrationTargetMinBiomass": 8,
@@ -17,7 +17,10 @@
     "migrationRevisitRadius": 8,
     "migrationRevisitCooldownTicks": 1800,
     "migrationRecentPastureMinValueFraction": 0.12,
-    "migrationHistorySize": 8
+    "migrationHistorySize": 8,
+    "energyDeclineTicksBeforeMigration": 4,
+    "energyDeclineMeanEnergyFraction": 0.6,
+    "energyTrendTolerance": 0.05
   },
   "reshape": {
     "enabled": true,
@@ -34,9 +37,11 @@
   "survival": {
     "sacrifice": {
       "enabled": true,
-      "meanEnergyThresholdFraction": 0.2,
+      "meanEnergyThresholdFraction": 0.25,
       "energyRecoveryFraction": 0.8,
-      "minCells": 2
+      "minCells": 2,
+      "largeOrganismMinCells": 50,
+      "largeOrganismMeanEnergyThresholdFraction": 0.4
     }
   },
   "stem": {
@@ -47,7 +52,9 @@
     "digestionRate": 2,
     "digestionEfficiency": 3,
     "energyTransferRate": 0.12,
-    "foodTransferRate": 0.1
+    "foodTransferRate": 0.1,
+    "emergencyFoodIntakeRate": 3,
+    "emergencyIntakeMeanEnergyFraction": 0.45
   },
   "reproduction": {
     "energyThreshold": 88,
