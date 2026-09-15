@@ -1,9 +1,9 @@
 import { computeMetrics } from '../simulation/sim.js';
 import { generateInitialFood } from '../simulation/initialWorld.js';
-import { GameSession } from '../simulation/session.js';
+import { GameSession } from '../simulation/session.js?v=body-response-2';
 import { clampZoom, computeCameraLayout } from './camera.js';
 import { accumulatedSteps, speedRateForIndex } from './speed.js';
-import { loadPreset } from '../experiments/presets.js';
+import { loadPreset } from '../experiments/presets.js?v=body-response-2';
 import { seekToTick } from '../experiments/seek.js';
 
 const canvas = document.getElementById('dish');
@@ -35,7 +35,9 @@ const bench = Object.fromEntries([
 ].map((id) => [id, document.getElementById(id)]));
 const rootUrl = new URL('../../', import.meta.url);
 async function readJson(path) {
-  const response = await fetch(new URL(path, rootUrl));
+  const url = new URL(path, rootUrl);
+  url.searchParams.set('v', new URL(import.meta.url).searchParams.get('v') ?? 'dev');
+  const response = await fetch(url);
   if (!response.ok) throw new Error(`Cannot load ${path}: HTTP ${response.status}`);
   return response.json();
 }

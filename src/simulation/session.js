@@ -1,6 +1,6 @@
 import { clone, computeMetrics, connectedComponents, forageScore, forageSupportRatio, nearestFoodVector, normalizeState, step as stepBiology } from './sim.js';
 import { nextRandom, normalizeSeed, randomInt } from './rng.js';
-import { foodContactCount, findFeedingReshape, applyReshape } from './morphology.js';
+import { foodContactCount, findFeedingReshape, applyReshape } from './morphology.js?v=body-response-2';
 
 const key = (x, y) => `${x},${y}`;
 const SEARCH_DIRS = [

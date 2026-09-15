@@ -1,5 +1,5 @@
 import { generateInitialFood } from '../simulation/initialWorld.js';
-import { GameSession } from '../simulation/session.js';
+import { GameSession } from '../simulation/session.js?v=body-response-2';
 
 // Keep transport (fetch vs filesystem) outside this browser-safe module.
 export function mergeSettings(base, overrides = {}) {
