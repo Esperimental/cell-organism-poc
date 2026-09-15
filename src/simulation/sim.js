@@ -437,6 +437,20 @@ export function step(stateInput, rules, world = null, fallbackDirection = null, 
 
     const dx = direction?.dx ?? 0;
     const dy = direction?.dy ?? 0;
+    if (rules.reshape?.responsive && (dx || dy)) {
+      state.bodyResponse ??= {};
+      state.bodyResponse.movement ??= {};
+      const componentId = Math.min(...component.map(c => c.id));
+      const recent = state.bodyResponse.movement[componentId];
+      const emergency = component.reduce((sum, c) => sum + c.energy, 0) / component.length < rules.stem.maxEnergy * 0.35;
+      if (!emergency && !forcedDirection && recent) {
+        const age = state.tick - recent.tick;
+        if (age < 3) continue;
+        const reverses = dx === -recent.dx && dy === -recent.dy;
+        const gain = forageScore(component, state, rules, dx, dy) - currentForage;
+        if (reverses && age < 8 && currentForage > 0 && gain < Math.max(0.25, currentForage * 0.35)) continue;
+      }
+    }
     if (!canTranslate(component, state, dx, dy, world)) continue;
     if (dx || dy) sacrificeForTravel(state, rules, component, { dx, dy }, events);
     const liveIds = new Set(state.cells.map((cell) => cell.id));
@@ -449,6 +463,9 @@ export function step(stateInput, rules, world = null, fallbackDirection = null, 
       cell.energy -= rules.movementEnergy;
     }
     if (dx || dy) events.push({ tick: state.tick, type: 'movement', cellIds: movingComponent.map((c) => c.id), dx, dy, forageBefore: currentForage, forageAfter: forageScore(movingComponent, state, rules) });
+    if (rules.reshape?.responsive && (dx || dy)) {
+      state.bodyResponse.movement[Math.min(...component.map(c => c.id))] = { tick: state.tick, dx, dy };
+    }
   }
 
   if (!options.skipConsumption) consumeFood(state, rules, events);

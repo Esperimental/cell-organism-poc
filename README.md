@@ -18,6 +18,21 @@ cost. Only one boundary cell moves on the configured cadence; rigid translation
 waits during that opportunity. Committed migration takes priority.
 Quiet feeding is allowed; the body is not forced to keep moving.
 
+The response now permits connected diagonal folds around a neighbour and a
+single preparatory move when one further adjustment would increase food contact.
+Immediate feeding value weights the score. Recent reshapes cannot immediately
+undo themselves. Local feeding translations pause for three ticks and resist
+reversal for eight ticks unless the improvement is substantial; urgent low
+energy and committed migration bypass that resistance. This memory lives in
+the snapshot, so replay and resumed runs make the same decisions.
+
+Three focused presets isolate these behaviours: `fold-rich` covers the fourth
+food tile by tick 6, `balanced-feeding` checks similar feeding positions, and
+`leave-depleted` checks departure to fresh food. Playing responsive scenes eases
+cell positions and their connections over at most 280 ms. Pausing, stepping and
+seeking show exact simulation positions. Food below the sensing threshold is
+dimmed, and completely empty tiles are hidden.
+
 This is an experiment, not a global ecology change or soft-body locomotion.
 The normal random run retains its previous behaviour. Acceptance tests cover
 the scene, mirrored and rotated versions, feeding on both patches, survival,
