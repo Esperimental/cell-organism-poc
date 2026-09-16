@@ -7,11 +7,10 @@
 Select **Body language — two food patches**, start at tick zero, then Play
 at the preset's 2 ticks/second. The world fits the fixed camera. At ticks
 3–12, boundary cells reach and gather toward the first patch; the body then
-feeds and travels to the second patch. **Body language — original behaviour**
-uses the same map, seed and ecology with this response disabled.
+feeds and travels to the second patch. All presets and the normal random game
+use the same baseline rules and simulation engine.
 
-The opt-in rule `reshape.responsive: true` connects the previously unused
-reshape action to the session loop and permits short preparatory moves toward
+The shared reshape action permits short preparatory moves toward
 nearby food before contact. A move must preserve connectivity, not lose food
 contacts, improve the approach/contact/compactness score, and pay its energy
 cost. Only one boundary cell moves on the configured cadence; rigid translation
@@ -31,13 +30,13 @@ Scent lives in the snapshot, so replay and resumed runs agree.
 
 Three focused presets isolate these behaviours: `fold-rich` covers the fourth
 food tile by tick 6, `balanced-feeding` checks similar feeding positions, and
-`leave-depleted` checks departure to fresh food. Playing responsive scenes eases
+`leave-depleted` checks departure to fresh food. Playing the game or a preset eases
 cell positions and their connections over at most 280 ms. Pausing, stepping and
 seeking show exact simulation positions. Food below the sensing threshold is
 dimmed, and completely empty tiles are hidden.
 
-This is an experiment, not a global ecology change or soft-body locomotion.
-The normal random run retains its previous behaviour. Acceptance tests cover
+Presets specify starting environments, not alternative gameplay rules.
+Acceptance tests cover
 the scene, mirrored and rotated versions, feeding on both patches, survival,
 connectivity, and a no-food control.
 
@@ -75,16 +74,17 @@ the CLI; browser **Target tick** is an absolute tick. Existing explicit
 
 To add an experiment, commit a scenario JSON and an entry in
 `experiments/catalog.json`. Each entry has a unique ID, name, description,
-scenario path and seed. Optional fields: `rules`, `world`, recursively merged
-`rulesOverrides`/`worldOverrides`, and `view: { tick, speed, zoom }`.
+scenario path and seed. Optional fields: `world`, recursively merged
+`worldOverrides`, and `view: { tick, speed, zoom }`. Rule-file and rule-override
+fields are rejected: every playable preset loads `configs/baseline.json`.
 `view.speed` is the existing slider index (0–8).
 Food is preserved by default; `initialFood: "generated"` explicitly replaces it
 with the seeded food generator. Set per-food `growthRate: 0` when fixed food
 must not regrow; disabling spawning/spreading alone does not disable regrowth.
 
-Browser and CLI use the shared `loadPreset` initializer. The compact-birth,
-grazing-underlay and staged-refuel acceptance tests load their catalogue
-entries directly. Replay tests compare every preset with a headless run,
+Browser and CLI use the shared `loadPreset` initializer. Automated tests may
+isolate a mechanism by changing their own session rules; playable presets do not.
+Replay tests compare every preset with a headless run,
 including rewind and saved-state continuation. No simulation rules are changed
 by the bench itself.
 

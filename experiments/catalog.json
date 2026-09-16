@@ -1,65 +1,119 @@
 [
   {
-    "id": "fold-rich", "name": "Body language — fold over rich food",
+    "id": "fold-rich",
+    "name": "Body language — fold over rich food",
     "description": "A cross must fold around its neighbours to cover a rich square patch.",
-    "scenario": "scenarios/fold-rich.json", "seed": 1,
-    "rulesOverrides": { "reshape": { "responsive": true }, "grazing": { "migrationTargetJitterFraction": 0 } },
-    "worldOverrides": { "minX": -4, "maxX": 9, "minY": -3, "maxY": 8, "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
-    "view": { "tick": 12, "speed": 1, "zoom": 1 }
+    "scenario": "scenarios/fold-rich.json",
+    "seed": 1,
+    "worldOverrides": {
+      "minX": -4,
+      "maxX": 9,
+      "minY": -3,
+      "maxY": 8,
+      "foodSpawn": {
+        "enabled": false
+      },
+      "foodSpread": {
+        "enabled": false
+      }
+    },
+    "view": {
+      "tick": 12,
+      "speed": 1,
+      "zoom": 1
+    }
   },
   {
-    "id": "balanced-feeding", "name": "Body language — balanced feeding",
+    "id": "balanced-feeding",
+    "name": "Body language — balanced feeding",
     "description": "Two similar feeding positions: observe settling and resistance to repeated reversals.",
-    "scenario": "scenarios/balanced-feeding.json", "seed": 1,
-    "rulesOverrides": { "reshape": { "responsive": true }, "grazing": { "migrationTargetJitterFraction": 0 } },
-    "worldOverrides": { "minX": -4, "maxX": 9, "minY": -3, "maxY": 8, "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
-    "view": { "tick": 60, "speed": 1, "zoom": 1 }
+    "scenario": "scenarios/balanced-feeding.json",
+    "seed": 1,
+    "worldOverrides": {
+      "minX": -4,
+      "maxX": 9,
+      "minY": -3,
+      "maxY": 8,
+      "foodSpawn": {
+        "enabled": false
+      },
+      "foodSpread": {
+        "enabled": false
+      }
+    },
+    "view": {
+      "tick": 60,
+      "speed": 1,
+      "zoom": 1
+    }
   },
   {
-    "id": "leave-depleted", "name": "Body language — leave depleted food",
+    "id": "leave-depleted",
+    "name": "Body language — leave depleted food",
     "description": "Almost empty food underfoot and a fresh patch nearby: persistence must not prevent departure.",
-    "scenario": "scenarios/leave-depleted.json", "seed": 1,
-    "rulesOverrides": { "reshape": { "responsive": true }, "grazing": { "migrationTargetJitterFraction": 0 } },
-    "worldOverrides": { "minX": -4, "maxX": 9, "minY": -3, "maxY": 8, "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
-    "view": { "tick": 40, "speed": 1, "zoom": 1 }
+    "scenario": "scenarios/leave-depleted.json",
+    "seed": 1,
+    "worldOverrides": {
+      "minX": -4,
+      "maxX": 9,
+      "minY": -3,
+      "maxY": 8,
+      "foodSpawn": {
+        "enabled": false
+      },
+      "foodSpread": {
+        "enabled": false
+      }
+    },
+    "view": {
+      "tick": 40,
+      "speed": 1,
+      "zoom": 1
+    }
   },
   {
     "id": "body-language",
     "name": "Body language — two food patches",
-    "description": "Fixed small world: reach, gather, feed, then leave for the second patch. Experimental body response; no random food or regrowth.",
+    "description": "Fixed small world: reach, gather, feed, then leave for the second patch. Shared game behaviour; no random food or regrowth.",
     "scenario": "scenarios/body-language.json",
     "seed": 1,
-    "rulesOverrides": {
-      "reshape": { "responsive": true, "moveEveryTicks": 3, "reachRadius": 3, "approachWeight": 3 },
-      "grazing": { "migrationTargetJitterFraction": 0 }
-    },
     "worldOverrides": {
-      "minX": -4, "maxX": 9, "minY": -3, "maxY": 8,
-      "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false }
+      "minX": -4,
+      "maxX": 9,
+      "minY": -3,
+      "maxY": 8,
+      "foodSpawn": {
+        "enabled": false
+      },
+      "foodSpread": {
+        "enabled": false
+      }
     },
-    "view": { "tick": 60, "speed": 1, "zoom": 1 }
-  },
-  {
-    "id": "body-language-control",
-    "name": "Body language — original behaviour",
-    "description": "The identical two-patch scene with the new body response switched off, for comparison.",
-    "scenario": "scenarios/body-language.json",
-    "seed": 1,
-    "rulesOverrides": { "grazing": { "migrationTargetJitterFraction": 0 } },
-    "worldOverrides": {
-      "minX": -4, "maxX": 9, "minY": -3, "maxY": 8,
-      "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false }
-    },
-    "view": { "tick": 60, "speed": 1, "zoom": 1 }
+    "view": {
+      "tick": 60,
+      "speed": 1,
+      "zoom": 1
+    }
   },
   {
     "id": "grazing-underlay",
     "name": "Grazing underfoot",
-    "description": "Inspect feeding without translation. Matches the five-tick acceptance snapshot.",
+    "description": "Food beneath the organism: inspect feeding and adjustment with the shared game rules.",
     "scenario": "scenarios/grazing-underlay.json",
     "seed": 1,
-    "worldOverrides": { "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
-    "view": { "tick": 5, "speed": 0, "zoom": 4 }
+    "worldOverrides": {
+      "foodSpawn": {
+        "enabled": false
+      },
+      "foodSpread": {
+        "enabled": false
+      }
+    },
+    "view": {
+      "tick": 5,
+      "speed": 0,
+      "zoom": 4
+    }
   },
   {
     "id": "feeding-reshape",
@@ -67,23 +121,39 @@
     "description": "An asymmetric five-cell body beside a fixed food patch. Inspect changes in food contact and shape.",
     "scenario": "scenarios/feeding-reshape.json",
     "seed": 1,
-    "worldOverrides": { "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
-    "view": { "tick": 5, "speed": 0, "zoom": 4 }
+    "worldOverrides": {
+      "foodSpawn": {
+        "enabled": false
+      },
+      "foodSpread": {
+        "enabled": false
+      }
+    },
+    "view": {
+      "tick": 5,
+      "speed": 0,
+      "zoom": 4
+    }
   },
   {
     "id": "compact-birth",
     "name": "Compact birth",
-    "description": "One-tick reproduction geometry. Search, maintenance and resource transfers are disabled to match the acceptance snapshot.",
+    "description": "Compact organism on an authored map. Uses the same growth and movement rules as the game.",
     "scenario": "scenarios/compact-birth.json",
     "seed": 1,
-    "rulesOverrides": {
-      "search": { "enabled": false },
-      "maintenanceEnergy": 0,
-      "exposedEdgeEnergyCost": 0,
-      "stem": { "energyTransferRate": 0, "foodTransferRate": 0 }
+    "worldOverrides": {
+      "foodSpawn": {
+        "enabled": false
+      },
+      "foodSpread": {
+        "enabled": false
+      }
     },
-    "worldOverrides": { "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
-    "view": { "tick": 1, "speed": 0, "zoom": 4 }
+    "view": {
+      "tick": 1,
+      "speed": 0,
+      "zoom": 4
+    }
   },
   {
     "id": "staged-refuel",
@@ -91,9 +161,19 @@
     "description": "Travel between small refuelling patches, shedding cells under stress. Matches the 120-tick acceptance test.",
     "scenario": "scenarios/staged-refuel.json",
     "seed": 1,
-    "rulesOverrides": { "grazing": { "migrationTargetJitterFraction": 0 } },
-    "worldOverrides": { "foodSpawn": { "enabled": false }, "foodSpread": { "enabled": false } },
-    "view": { "tick": 120, "speed": 2, "zoom": 1 }
+    "worldOverrides": {
+      "foodSpawn": {
+        "enabled": false
+      },
+      "foodSpread": {
+        "enabled": false
+      }
+    },
+    "view": {
+      "tick": 120,
+      "speed": 2,
+      "zoom": 1
+    }
   },
   {
     "id": "baseline-ecology",
@@ -102,6 +182,10 @@
     "scenario": "scenarios/food-east.json",
     "seed": 42,
     "initialFood": "generated",
-    "view": { "tick": 300, "speed": 3, "zoom": 1 }
+    "view": {
+      "tick": 300,
+      "speed": 3,
+      "zoom": 1
+    }
   }
 ]

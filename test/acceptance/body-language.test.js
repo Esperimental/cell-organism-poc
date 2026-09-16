@@ -55,11 +55,7 @@ for (const variant of ['original', 'mirrored', 'rotated']) {
   });
 }
 
-test('control scene retains rigid movement and response has no attraction to absent food', async () => {
-  const { session: control } = await experiment('body-language-control');
-  const result = control.run(100);
-  assert.ok(result.events.some(e => e.type === 'movement'));
-  assert.ok(!result.events.some(e => e.type === 'reshape'));
+test('body has no attraction to absent food', async () => {
   const { session: responsive } = await experiment('body-language');
   responsive.state.food = [];
   assert.ok(!responsive.run(20).events.some(e => e.type === 'reshape'));

@@ -1,6 +1,6 @@
-import { clone, computeMetrics, connectedComponents, forageScore, forageSupportRatio, nearestFoodVector, normalizeState, step as stepBiology } from './sim.js?v=grazing-scent-1';
+import { clone, computeMetrics, connectedComponents, forageScore, forageSupportRatio, nearestFoodVector, normalizeState, step as stepBiology } from './sim.js?v=shared-behaviour-1';
 import { nextRandom, normalizeSeed, randomInt } from './rng.js';
-import { foodContactCount, findFeedingReshape, applyReshape } from './morphology.js?v=grazing-scent-1';
+import { foodContactCount, findFeedingReshape, applyReshape } from './morphology.js?v=shared-behaviour-1';
 
 const key = (x, y) => `${x},${y}`;
 const SEARCH_DIRS = [
@@ -240,7 +240,7 @@ function recentPastureValueFactor(state, food, rules) {
   return minimumFactor + (1 - minimumFactor) * (age / cooldown);
 }
 
-export function chooseMigrationTarget(state, rules) {
+export function chooseMigrationTarget(state, rules, world = null) {
   const component = largestComponent(state);
   if (!component.length) return null;
   const center = componentCenter(component);
@@ -260,6 +260,7 @@ export function chooseMigrationTarget(state, rules) {
   const candidates = [];
 
   for (const food of candidateTiles) {
+    if (world && !directionTowardTarget(component, food, world)) continue;
     const distance = Math.abs(food.x - center.x) + Math.abs(food.y - center.y);
     if (distance < minDistance || distance > senseRadius) continue;
 
@@ -306,16 +307,17 @@ export function chooseMigrationTarget(state, rules) {
   return candidates[0] ?? null;
 }
 
-function directionTowardTarget(component, target) {
+function directionTowardTarget(component, target, world = null) {
   const center = componentCenter(component);
   const dx = target.x - center.x;
   const dy = target.y - center.y;
-  if (Math.abs(dx) >= Math.abs(dy) && Math.abs(dx) > 0.001) return { dx: Math.sign(dx), dy: 0 };
-  if (Math.abs(dy) > 0.001) return { dx: 0, dy: Math.sign(dy) };
-  return null;
+  const directions = [{ dx: Math.sign(dx), dy: 0, distance: Math.abs(dx) }, { dx: 0, dy: Math.sign(dy), distance: Math.abs(dy) }];
+  return directions.sort((a, b) => b.distance - a.distance).find(d => d.distance > 0.001
+    && (!world || component.every(c => c.x + d.dx >= world.minX && c.x + d.dx <= world.maxX
+      && c.y + d.dy >= world.minY && c.y + d.dy <= world.maxY))) ?? null;
 }
 
-function migrationDirectionForTick(state, rules) {
+function migrationDirectionForTick(state, rules, world) {
   const component = largestComponent(state);
   if (!component.length) {
     state.migration = null;
@@ -334,7 +336,7 @@ function migrationDirectionForTick(state, rules) {
       state.migration = null;
       return { handled: false, direction: null };
     }
-    if (reachedTarget && currentSupport < minimumSupport) {
+    if ((reachedTarget && currentSupport < minimumSupport) || !directionTowardTarget(component, target, world)) {
       rememberPasture(state, target, rules);
       state.migration = null;
     }
@@ -343,7 +345,7 @@ function migrationDirectionForTick(state, rules) {
   const energyDeclining = energyTrendDemandsMigration(state, rules);
   if (!state.migration?.target && (currentForage <= 0 || currentSupport < minimumSupport || energyDeclining)) {
     if (currentForage > 0) rememberPasture(state, componentCenter(component), rules);
-    const target = chooseMigrationTarget(state, rules);
+    const target = chooseMigrationTarget(state, rules, world);
     if (target) {
       state.migration = {
         target: { x: target.x, y: target.y },
@@ -356,14 +358,14 @@ function migrationDirectionForTick(state, rules) {
 
   const moveEveryTicks = Math.max(1, rules.search?.moveEveryTicks ?? 2);
   if ((state.tick + 1) % moveEveryTicks !== 0) return { handled: true, direction: null };
-  return { handled: true, direction: directionTowardTarget(component, state.migration.target) };
+  return { handled: true, direction: directionTowardTarget(component, state.migration.target, world) };
 }
 
-function searchDirectionForTick(state, rules) {
+function searchDirectionForTick(state, rules, world) {
   const search = rules.search ?? {};
   if (!search.enabled || !state.cells.length) return null;
 
-  const migration = migrationDirectionForTick(state, rules);
+  const migration = migrationDirectionForTick(state, rules, world);
   if (migration.handled) return migration.direction;
 
   const forceEscapeSearch = hasUnderSupportedGrazing(state, rules);
@@ -425,11 +427,10 @@ export class GameSession {
     spreadFood(this.state, this.world, worldEvents);
     maybeSpawnFood(this.state, this.world, worldEvents);
     const before = includeActivity ? clone(this.state) : null;
-    const searchDirection = searchDirectionForTick(this.state, this.rules);
+    const searchDirection = searchDirectionForTick(this.state, this.rules, this.world);
     const migrationActive = Boolean(this.state.migration?.target);
-    // Opt-in while the body response is being evaluated in controlled scenes.
     // A reshaping opportunity pauses translation until the next body cadence.
-    const reshape = this.rules.reshape?.responsive && !migrationActive
+    const reshape = !migrationActive
       ? findFeedingReshape(this.state, this.rules, this.world) : null;
     if (reshape && (this.state.tick + 1) % Math.max(1, this.rules.reshape.moveEveryTicks ?? 3) === 0) {
       applyReshape(this.state, reshape);

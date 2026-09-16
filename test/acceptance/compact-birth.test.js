@@ -6,6 +6,13 @@ import { experiment } from '../helpers/fixtures.js';
 
 test('compact birth one-tick morphology matches reviewed snapshot', async () => {
   const { session } = await experiment('compact-birth');
+  // Isolate reproduction here; the playable preset always uses the game rules.
+  session.rules = structuredClone(session.rules);
+  session.rules.search.enabled = false;
+  session.rules.maintenanceEnergy = 0;
+  session.rules.exposedEdgeEnergyCost = 0;
+  session.rules.stem.energyTransferRate = 0;
+  session.rules.stem.foodTransferRate = 0;
   const expected = JSON.parse(fs.readFileSync('test/acceptance/snapshots/compact-birth-1.json', 'utf8'));
   const before = computeMetrics(session.state);
   const result = session.step();

@@ -8,6 +8,16 @@ import { generateInitialFood } from '../../src/simulation/initialWorld.js';
 const read = async (path) => JSON.parse(await fs.readFile(path, 'utf8'));
 const catalog = await read('experiments/catalog.json');
 
+test('every playable preset uses the unmodified game rules', async () => {
+  const baseline = await read('configs/baseline.json');
+  for (const preset of catalog) {
+    assert.equal(preset.rules, undefined);
+    assert.equal(preset.rulesOverrides, undefined);
+    const { session } = await loadPreset(preset.id, read);
+    assert.deepEqual(session.rules, baseline);
+  }
+});
+
 for (const preset of catalog) {
   test(preset.id + ': batched seek, replay and headless run agree', async () => {
     const { session: headless } = await loadPreset(preset.id, read);

@@ -1,9 +1,9 @@
 import { computeMetrics } from '../simulation/sim.js';
 import { generateInitialFood } from '../simulation/initialWorld.js';
-import { GameSession } from '../simulation/session.js?v=grazing-scent-1';
+import { GameSession } from '../simulation/session.js?v=shared-behaviour-1';
 import { clampZoom, computeCameraLayout } from './camera.js';
 import { accumulatedSteps, speedRateForIndex } from './speed.js';
-import { loadPreset } from '../experiments/presets.js?v=grazing-scent-1';
+import { loadPreset } from '../experiments/presets.js?v=shared-behaviour-1';
 import { seekToTick } from '../experiments/seek.js';
 
 const canvas = document.getElementById('dish');
@@ -257,7 +257,7 @@ function drawCells(l, time) {
 
 function render(time = 0) {
   const duration = Math.min(280, 850 / speedRateForIndex(els.speed.value));
-  const progress = playing && rules.reshape?.responsive ? Math.max(0, Math.min(1, (time - motionStarted) / duration)) : 1;
+  const progress = playing ? Math.max(0, Math.min(1, (time - motionStarted) / duration)) : 1;
   const eased = progress * progress * (3 - 2 * progress);
   displayedPositions = new Map(state.cells.map(cell => {
     const from = motionFrom.get(cell.id) ?? cell;
