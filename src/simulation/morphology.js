@@ -1,4 +1,4 @@
-import { clone, computeMetrics, connectedComponents, forageScore } from './sim.js';
+import { clone, computeMetrics, connectedComponents, forageScore } from './sim.js?v=grazing-scent-1';
 
 const DIRS = [
   { dx: 1, dy: 0 },
@@ -86,7 +86,7 @@ export function findFeedingReshape(state, rules, world, allowPreparation = true)
         if (!followup || followup.foodContactsAfter <= beforeContacts) continue;
         preparationGain = (followup.foodContactsAfter - beforeContacts) * 2;
       }
-      const feedingGain = forageScore(candidateState.cells, candidateState, rules) - forageScore(state.cells, state, rules);
+      const feedingGain = forageScore(candidateState.cells, candidateState, rules, 0, 0, responsive) - forageScore(state.cells, state, rules, 0, 0, responsive);
       const score = (responsive ? feedingGain : contactGain) * foodWeight + approach * (config.approachWeight ?? 3) - exposedIncrease * compactnessWeight + preparationGain;
       if (score <= 0) continue;
 

@@ -21,10 +21,13 @@ Quiet feeding is allowed; the body is not forced to keep moving.
 The response now permits connected diagonal folds around a neighbour and a
 single preparatory move when one further adjustment would increase food contact.
 Immediate feeding value weights the score. Recent reshapes cannot immediately
-undo themselves. Local feeding translations pause for three ticks and resist
-reversal for eight ticks unless the improvement is substantial; urgent low
-energy and committed migration bypass that resistance. This memory lives in
-the snapshot, so replay and resumed runs make the same decisions.
+undo themselves. Food carries a fading scent: feeding adds 0.12 (capped at 1),
+each tick removes 0.02, and preference subtracts 0.35 times the scent from
+the tile's feeding value (floored at zero). A feeding body stays put unless
+another position improves the total preference by more than 0.25. This replaces
+the movement pause/reversal timers. Nutrition and pasture support still use
+actual intake; low-energy escape and committed migration remain available.
+Scent lives in the snapshot, so replay and resumed runs agree.
 
 Three focused presets isolate these behaviours: `fold-rich` covers the fourth
 food tile by tick 6, `balanced-feeding` checks similar feeding positions, and

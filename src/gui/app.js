@@ -1,9 +1,9 @@
 import { computeMetrics } from '../simulation/sim.js';
 import { generateInitialFood } from '../simulation/initialWorld.js';
-import { GameSession } from '../simulation/session.js?v=body-settling-1';
+import { GameSession } from '../simulation/session.js?v=grazing-scent-1';
 import { clampZoom, computeCameraLayout } from './camera.js';
 import { accumulatedSteps, speedRateForIndex } from './speed.js';
-import { loadPreset } from '../experiments/presets.js?v=body-settling-1';
+import { loadPreset } from '../experiments/presets.js?v=grazing-scent-1';
 import { seekToTick } from '../experiments/seek.js';
 
 const canvas = document.getElementById('dish');

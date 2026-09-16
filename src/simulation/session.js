@@ -1,6 +1,6 @@
-import { clone, computeMetrics, connectedComponents, forageScore, forageSupportRatio, nearestFoodVector, normalizeState, step as stepBiology } from './sim.js?v=body-settling-1';
+import { clone, computeMetrics, connectedComponents, forageScore, forageSupportRatio, nearestFoodVector, normalizeState, step as stepBiology } from './sim.js?v=grazing-scent-1';
 import { nextRandom, normalizeSeed, randomInt } from './rng.js';
-import { foodContactCount, findFeedingReshape, applyReshape } from './morphology.js?v=body-settling-1';
+import { foodContactCount, findFeedingReshape, applyReshape } from './morphology.js?v=grazing-scent-1';
 
 const key = (x, y) => `${x},${y}`;
 const SEARCH_DIRS = [
