@@ -5,7 +5,6 @@
   "foodSenseRadius": 8,
   "foodSenseMinBiomass": 2,
   "grazing": {
-    "moveForageImprovement": 1.2,
     "minSupportRatio": 1.9,
     "migrationMinDistance": 10,
     "migrationSenseRadius": 60,

@@ -1,5 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+
+test('a wide migrating body follows the open axis instead of pushing into the world edge', () => {
+  const state = {
+    tick: 1,
+    cells: [-5, -4, -3].map((x, i) => ({ id: i + 1, x, y: 0, type: 'stem', energy: 70, storedFood: 0 })),
+    food: [{ x: -5, y: 1, amount: 20, capacity: 20, growthRate: 0 }],
+    migration: { target: { x: -5, y: 1 }, startedTick: 0 },
+  };
+  const session = new GameSession({ state, rules, world: mergeWorld({ minX: -5, maxX: 5, minY: -5, maxY: 5, foodSpawn: { enabled: false }, foodSpread: { enabled: false } }), seed: 1 });
+  const movement = session.step().events.find(e => e.type === 'movement');
+  assert.ok(movement);
+  assert.equal(movement.dx, 0);
+  assert.equal(movement.dy, 1);
+});
 import fs from 'node:fs';
 import { GameSession } from '../../src/simulation/session.js';
 import { foodContactCount } from '../../src/simulation/morphology.js';
@@ -109,6 +123,7 @@ test('organism shifts within pasture when nearby forage is substantially richer'
   };
   const localRules = structuredClone(rules);
   localRules.stem.foodIntakeRate = 1;
+  localRules.reshape.enabled = false; // Isolate translation from local reshaping.
   const session = new GameSession({ state: grazingScenario, rules: localRules, world: localWorld, seed: 2 });
   const result = session.step();
   const movement = result.events.find((event) => event.type === 'movement');
@@ -210,8 +225,10 @@ test('low-energy travelling organism sacrifices one rear cell and keeps moving t
   assert.deepEqual(session.state.cells.map((cell) => cell.x).sort((a, b) => a - b), [2, 3]);
 });
 
-test('under-supported grazing footprint moves toward richer sensed food even before current grass is empty', () => {
+test('low-energy under-supported grazing moves toward richer food before current grass is empty', () => {
   const localRules = structuredClone(rules);
+  localRules.reshape.enabled = false;
+  localRules.stem.emergencyFoodIntakeRate = 1;
   localRules.search.enabled = false;
   localRules.reproduction.energyThreshold = 101;
   localRules.survival.sacrifice.enabled = false;
@@ -221,9 +238,9 @@ test('under-supported grazing footprint moves toward richer sensed food even bef
   const state = {
     tick: 0,
     cells: [
-      { id: 1, x: 0, y: 0, type: 'stem', energy: 80, storedFood: 0 },
-      { id: 2, x: 1, y: 0, type: 'stem', energy: 80, storedFood: 0 },
-      { id: 3, x: 2, y: 0, type: 'stem', energy: 80, storedFood: 0 },
+      { id: 1, x: 0, y: 0, type: 'stem', energy: 30, storedFood: 0 },
+      { id: 2, x: 1, y: 0, type: 'stem', energy: 30, storedFood: 0 },
+      { id: 3, x: 2, y: 0, type: 'stem', energy: 30, storedFood: 0 },
     ],
     food: [
       { x: 0, y: 0, amount: 2, capacity: 10, growthRate: 0 },
@@ -239,8 +256,11 @@ test('under-supported grazing footprint moves toward richer sensed food even bef
   assert.equal(movement.dy, 0);
 });
 
-test('under-supported grazing uses escape heading when sensed food vector cancels out', () => {
+test('low-energy grazing uses escape heading when sensed food vector cancels out', () => {
   const localRules = structuredClone(rules);
+  localRules.reshape.enabled = false;
+  localRules.stem.emergencyFoodIntakeRate = 1;
+  localRules.grazing.migrationSenseRadius = 0; // Isolate the local escape heading.
   localRules.reproduction.energyThreshold = 101;
   localRules.survival.sacrifice.enabled = false;
   localRules.grazing.minSupportRatio = 1.1;
@@ -250,9 +270,9 @@ test('under-supported grazing uses escape heading when sensed food vector cancel
     tick: 1,
     search: { direction: { dx: 1, dy: 0 }, ticksInDirection: 1 },
     cells: [
-      { id: 1, x: 0, y: 0, type: 'stem', energy: 80, storedFood: 0 },
-      { id: 2, x: 1, y: 0, type: 'stem', energy: 80, storedFood: 0 },
-      { id: 3, x: 2, y: 0, type: 'stem', energy: 80, storedFood: 0 }
+      { id: 1, x: 0, y: 0, type: 'stem', energy: 30, storedFood: 0 },
+      { id: 2, x: 1, y: 0, type: 'stem', energy: 30, storedFood: 0 },
+      { id: 3, x: 2, y: 0, type: 'stem', energy: 30, storedFood: 0 }
     ],
     food: [
       { x: 1, y: 0, amount: 2, capacity: 20, growthRate: 0 },

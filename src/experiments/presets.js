@@ -1,5 +1,5 @@
 import { generateInitialFood } from '../simulation/initialWorld.js';
-import { GameSession } from '../simulation/session.js?v=grazing-scent-1';
+import { GameSession } from '../simulation/session.js?v=shared-behaviour-1';
 
 // Keep transport (fetch vs filesystem) outside this browser-safe module.
 export function mergeSettings(base, overrides = {}) {
@@ -18,6 +18,7 @@ export async function loadPreset(id, readJson, { seed } = {}) {
   if (new Set(catalog.map((entry) => entry.id)).size !== catalog.length) throw new Error('Duplicate experiment ID');
   const preset = catalog.find((entry) => entry.id === id);
   if (!preset) throw new Error(`Unknown experiment: ${id}`);
+  if (preset.rules || preset.rulesOverrides) throw new Error('Presets describe environments; simulation rules are shared with the game');
   const resolvedSeed = seed ?? preset.seed;
   if (!Number.isSafeInteger(resolvedSeed) || resolvedSeed < 0 || resolvedSeed > 0xffffffff) {
     throw new Error('Seed must be an unsigned 32-bit integer');
@@ -27,10 +28,10 @@ export async function loadPreset(id, readJson, { seed } = {}) {
   }
   const [scenario, baseRules, baseWorld] = await Promise.all([
     readJson(preset.scenario),
-    readJson(preset.rules ?? 'configs/baseline.json'),
+    readJson('configs/baseline.json'),
     readJson(preset.world ?? 'configs/world.json'),
   ]);
-  const rules = mergeSettings(baseRules, preset.rulesOverrides);
+  const rules = baseRules;
   const world = mergeSettings(baseWorld, preset.worldOverrides);
   const state = preset.initialFood === 'generated'
     ? generateInitialFood(scenario, world, resolvedSeed)

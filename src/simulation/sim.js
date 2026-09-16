@@ -120,14 +120,16 @@ function grazingIntakeRate(food, rules, intakeRate = rules.stem.foodIntakeRate) 
   return intakeRate * Math.max(minimumFraction, fullness);
 }
 
+export function foodPreference(food, rules, intakeRate) {
+  return Math.max(0, grazingIntakeRate(food, rules, intakeRate) - (food?.recentlyGrazed ?? 0) * 0.35);
+}
+
 export function forageScore(component, state, rules, dx = 0, dy = 0, preference = false) {
   const fmap = foodMap(state);
   const intakeRate = effectiveFoodIntakeRate(state, rules);
   return component.reduce((sum, cell) => {
     const food = fmap.get(key(cell.x + dx, cell.y + dy));
-    const intake = grazingIntakeRate(food, rules, intakeRate);
-    const scent = preference && rules.reshape?.responsive ? (food?.recentlyGrazed ?? 0) * 0.35 : 0;
-    return sum + Math.max(0, intake - scent);
+    return sum + (preference ? foodPreference(food, rules, intakeRate) : grazingIntakeRate(food, rules, intakeRate));
   }, 0);
 }
 
@@ -154,7 +156,7 @@ function consumeFood(state, rules, events) {
     const amount = Math.min(grazingIntakeRate(food, rules, intakeRate), capacity, food.amount);
     if (amount <= 0) continue;
     food.amount -= amount;
-    if (rules.reshape?.responsive) food.recentlyGrazed = Math.min(1, (food.recentlyGrazed ?? 0) + 0.12);
+    food.recentlyGrazed = Math.min(1, (food.recentlyGrazed ?? 0) + 0.12);
     cell.storedFood += amount;
     events.push({ tick: state.tick, type: 'food_consumed', cellId: cell.id, x: cell.x, y: cell.y, amount });
   }
@@ -410,7 +412,7 @@ export function computeMetrics(state, initialState = null) {
 export function step(stateInput, rules, world = null, fallbackDirection = null, options = {}) {
   const state = normalizeState(stateInput);
   state.tick += 1;
-  if (rules.reshape?.responsive) for (const food of state.food) {
+  for (const food of state.food) {
     food.recentlyGrazed = Math.max(0, (food.recentlyGrazed ?? 0) - 0.02);
   }
   const events = [];
@@ -425,16 +427,14 @@ export function step(stateInput, rules, world = null, fallbackDirection = null, 
     if (forcedDirection) {
       direction = forcedDirection;
     } else if (currentForage > 0) {
-      const responsive = rules.reshape?.responsive;
-      const currentPreference = forageScore(component, state, rules, 0, 0, responsive);
-      const improvement = rules.grazing?.moveForageImprovement ?? 1.15;
+      const currentPreference = forageScore(component, state, rules, 0, 0, true);
       const candidates = DIRS
         .filter(({ dx, dy }) => canTranslate(component, state, dx, dy, world))
-        .map(({ dx, dy }) => ({ dx, dy, score: forageScore(component, state, rules, dx, dy, responsive) }))
+        .map(({ dx, dy }) => ({ dx, dy, score: forageScore(component, state, rules, dx, dy, true) }))
         .sort((a, b) => (b.score - a.score) || (a.dy - b.dy) || (a.dx - b.dx));
-      if (candidates[0]?.score > (responsive ? currentPreference + 0.25 : currentForage * improvement)) {
+      if (candidates[0]?.score > currentPreference + 0.25) {
         direction = candidates[0];
-      } else if ((!responsive || component.every(c => c.energy < rules.stem.maxEnergy * 0.35))
+      } else if (component.every(c => c.energy < rules.stem.maxEnergy * 0.35)
         && forageSupportRatio(component, state, rules) < (rules.grazing?.minSupportRatio ?? 1.1)) {
         const sensed = nearestFoodVector(component, state, rules);
         direction = (sensed.dx === 0 && sensed.dy === 0 && fallbackDirection) ? fallbackDirection : sensed;
