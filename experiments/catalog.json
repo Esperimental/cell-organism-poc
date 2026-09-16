@@ -1,5 +1,13 @@
 [
   {
+    "id": "starvation-checkpoint",
+    "name": "Survival — refuelling checkpoint",
+    "description": "Seed 42 at tick 4200, before the former starvation at 4490. Preserves the complete world and RNG state; reset returns to 4200. Uses shared game rules.",
+    "scenario": "scenarios/starvation-checkpoint.json",
+    "seed": 42,
+    "view": { "tick": 4500, "speed": 3, "zoom": 1 }
+  },
+  {
     "id": "fold-rich",
     "name": "Body language — fold over rich food",
     "description": "A cross must fold around its neighbours to cover a rich square patch.",

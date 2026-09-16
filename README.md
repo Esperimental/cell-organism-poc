@@ -43,7 +43,7 @@ connectivity, and a no-food control.
 Open `src/gui/?experiment=compact-birth&tick=1` on the local server or
 GitHub Pages. The ordinary `src/gui/` entry still starts a random live world.
 Expand **Experiment bench**, select a preset, and choose **Load paused**.
-Presets start at tick zero; their suggested inspection tick is filled into
+Presets start at their saved tick (usually zero); their suggested inspection tick is filled into
 **Target tick**. Use **Go to tick**, **Step**, **Step 10**, or **Step 100**.
 Seeking backwards resets and replays deterministically. Long jumps yield in
 batches and can be cancelled; no unbounded event history is retained.
@@ -87,6 +87,31 @@ isolate a mechanism by changing their own session rules; playable presets do not
 Replay tests compare every preset with a headless run,
 including rewind and saved-state continuation. No simulation rules are changed
 by the bench itself.
+
+### Starvation checkpoint
+
+`starvation-checkpoint` restores seed 42 at tick 4200, captured from the authored
+`food-east` long-run scenario at commit `756ecbe`. It includes food, organism,
+RNG and behavioural state; it does not regenerate the world or change rules.
+The former nearest-food emergency rule starved at tick 4490 despite richer
+food elsewhere. Emergency targeting now scores usable food energy divided by
+`1 + distance`, balancing meal size against the journey with one expression.
+The checkpoint acceptance test requires survival, connectivity and energy
+recovery through tick 5200; the original 5000-tick run is checked separately.
+
+Open `src/gui/?experiment=starvation-checkpoint` to start paused at 4200,
+or append `&tick=4500` to inspect recovery. Reset returns to 4200; earlier ticks
+are unavailable in this snapshot. The saved RNG state takes precedence over
+the seed, so this checkpoint is one reproducible case, not a seed sweep.
+
+```bash
+npm run sim -- --experiment starvation-checkpoint --ticks 1000 --output runs/starvation
+```
+
+The growth acceptance gate requires growth beyond the starting body size,
+90% survival and 95% connectivity across ten seeds. The old median-30-cell
+target is retired: a smaller feeding body is valid, and growth alone is not
+evidence of organism-like behaviour. The existing population upper bound stays.
 
 ## Goal
 Build a deterministic, headless artificial-life simulation where a small cluster of simple stem cells behaves like one hungry organism through local rules rather than scripted organism-level AI.

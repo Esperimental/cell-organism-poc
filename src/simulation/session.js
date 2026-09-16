@@ -273,8 +273,10 @@ export function chooseMigrationTarget(state, rules, world = null) {
     const revisitFactor = emergency ? 1 : recentPastureValueFactor(state, food, rules);
     const pastureEnergyValue = usableBiomass * rules.stem.digestionEfficiency * revisitFactor;
     const travelCost = distance * component.length * rules.movementEnergy;
+    // Under stress, weigh refuelling value against distance: a nearby crumb
+    // must not keep winning over a reachable meal. The +1 handles short trips.
     let score = emergency
-      ? (-distance * 1000 + localBiomass)
+      ? (pastureEnergyValue / (1 + distance))
       : (pastureEnergyValue - travelCostWeight * travelCost);
 
     if (!emergency && jitterFraction > 0) {

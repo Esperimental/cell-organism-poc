@@ -90,3 +90,22 @@ test('stressed organism prioritizes nearest viable refuel stop over richer dista
   assert.ok(target.x <= 3, `expected nearby emergency refuel target, got ${target.x},${target.y}`);
   assert.ok(target.distance <= 3, `expected short emergency journey, got distance ${target.distance}`);
 });
+
+test('stressed organism prefers a useful meal over a closer small patch', () => {
+  const state = {
+    tick: 100,
+    cells: [
+      { id: 1, x: 0, y: 0, energy: 20, storedFood: 0 },
+      { id: 2, x: 1, y: 0, energy: 20, storedFood: 0 },
+      { id: 3, x: 0, y: 1, energy: 20, storedFood: 0 },
+    ],
+    food: [
+      { x: 3, y: 0, amount: 8, capacity: 24 },
+      { x: 8, y: 0, amount: 24, capacity: 24 },
+      { x: 8, y: 1, amount: 24, capacity: 24 },
+    ],
+  };
+  const target = chooseMigrationTarget(state, rules);
+  assert.equal(target.emergency, true);
+  assert.equal(target.x, 8);
+});

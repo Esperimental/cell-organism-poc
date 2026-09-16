@@ -104,6 +104,7 @@ if (preset) {
   bench.experimentTools.open = true;
   bench.experimentSelect.value = preset.id;
   bench.experimentDescription.textContent = preset.description;
+  bench.targetTick.min = String(session.initialState.tick);
   bench.targetTick.value = String(preset.view?.tick ?? 0);
   els.speed.value = String(preset.view?.speed ?? 3);
   camera.zoom = clampZoom(preset.view?.zoom ?? 1);

@@ -24,10 +24,10 @@ for (const preset of catalog) {
     // A transport returning fresh JSON mimics the browser fetch boundary.
     const { session: browser } = await loadPreset(preset.id, async (path) => JSON.parse(JSON.stringify(await read(path))));
     const target = preset.view.tick;
-    headless.run(target);
+    headless.run(target - headless.state.tick);
     await seekToTick(browser, target, { batchSize: 3, yieldBatch: async () => {} });
     assert.deepEqual(browser.snapshot(), headless.snapshot());
-    await seekToTick(browser, 0);
+    await seekToTick(browser, browser.initialState.tick);
     await seekToTick(browser, target, { yieldBatch: async () => {} });
     assert.deepEqual(browser.snapshot(), headless.snapshot());
     // Checkpoint contains all behavioural state needed to resume.
